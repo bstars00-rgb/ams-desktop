@@ -20,9 +20,12 @@ if (!data.clients.length) { console.error("Vault is empty. Run:  npm run vault a
 
 console.log("\nClients:");
 data.clients.forEach((c, i) => console.log(`  ${i + 1}. ${c.name}`));
-const pick = Number(await ask("\nWhich client? (number) ")) - 1;
-const client = data.clients[pick];
-if (!client) { console.error("Invalid selection."); process.exit(1); }
+const answer = (await ask("\nWhich client? (number or name) ")).trim();
+const n = Number(answer);
+const client = Number.isInteger(n) && n >= 1 && n <= data.clients.length
+  ? data.clients[n - 1]
+  : data.clients.find((c) => c.name.toLowerCase() === answer.toLowerCase());
+if (!client) { console.error("Invalid selection — type the number (e.g. 1) or the exact name."); process.exit(1); }
 
 fs.mkdirSync("auth", { recursive: true });
 const sessionFile = `auth/${client.name.replace(/[^a-z0-9]/gi, "_")}.json`;
