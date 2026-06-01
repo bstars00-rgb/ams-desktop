@@ -1,0 +1,15 @@
+{
+  "name": "ams-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AMS Desktop — local, no-backend mapping assistant. Stores client mapping-system credentials in an encrypted local vault, logs in, reads the room-mapping page, and recommends matches with the AMS algorithm. The final 'Mapping' click stays with the human. Credentials and logs never leave this machine.",
+  "scripts": {
+    "vault": "node src/vault.mjs",
+    "run": "node src/run.mjs",
+    "postinstall": "echo \"\\nNext: npx playwright install chromium\\n\""
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

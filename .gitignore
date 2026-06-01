@@ -1,0 +1,12 @@
+# Secrets & local state — NEVER commit these
+vault.enc
+auth/
+audit.log
+reports/
+.env
+
+# Dependencies / misc
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
