@@ -10,6 +10,7 @@ import { vaultExists, loadVault, saveVault, emptyVault } from "./lib/vault.mjs";
 import { findMappingFile, listChannels, buildQueue } from "./lib/queuelib.mjs";
 import { loadSettings, saveSettings } from "./lib/settings.mjs";
 import { readPage, analyze, highlight, dumpPage } from "./lib/recommend.mjs";
+import * as ctrip from "./lib/ctrip.mjs";
 import { audit } from "./lib/audit.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,7 +26,39 @@ const state = {
   activeClient: null,
   queue: null, // { channel, rooms, hotels }
   results: [], // recommendation history this session
+  batch: null, // { running, total, done, current, results:[] }
 };
+
+// Auto-scan: for each hotel code in codes.txt, Query → open each unmapped room's
+// modal → AMS recommend → collect. Never clicks the final "Mapping" (human decides).
+async function runBatch(limit) {
+  if (!fs.existsSync("codes.txt")) { state.batch = { running: false, error: "codes.txt 없음 — ② 작업 큐를 먼저 만드세요." }; return; }
+  const codes = fs.readFileSync("codes.txt", "utf8").split(/\r?\n/).map((s) => s.trim()).filter(Boolean).slice(0, limit);
+  const s = loadSettings();
+  state.batch = { running: true, total: codes.length, done: 0, current: "", results: [], error: null };
+  for (const code of codes) {
+    state.batch.current = code;
+    try {
+      await ctrip.query(state.page, code);
+      const rooms = await ctrip.unmappedRooms(state.page);
+      for (let i = 0; i < rooms.length; i++) {
+        try {
+          await ctrip.openModal(state.page, i);
+          const tables = await readPage(state.page);
+          if (tables.master) {
+            const { merchant, candidates } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
+            const best = candidates[0];
+            state.batch.results.push({ code, roomCode: rooms[i].roomCode, room: rooms[i].nameEN || merchant.name, best, candidates: candidates.slice(0, 5) });
+            audit({ operator: state.operator, client: state.activeClient?.name, action: "BATCH_RECOMMEND", code, room: rooms[i].nameEN, recommendedName: best?.name, score: best?.score, band: best?.band });
+          }
+        } catch { /* skip this room */ }
+        finally { await ctrip.closeModal(state.page).catch(() => {}); }
+      }
+    } catch (e) { state.batch.results.push({ code, error: String(e?.message || e) }); }
+    state.batch.done += 1;
+  }
+  state.batch.running = false;
+}
 
 const json = (res, code, obj) => { res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)); };
 const body = (req) => new Promise((r) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => { try { r(d ? JSON.parse(d) : {}); } catch { r({}); } }); });
@@ -73,7 +106,15 @@ const server = http.createServer(async (req, res) => {
         browserOpen: !!state.browser,
         activeClient: state.activeClient?.name ?? null,
         results: state.results.slice(-50),
+        batch: state.batch,
       });
+    }
+    if (req.method === "POST" && url.pathname === "/api/batch/start") {
+      if (!state.page) return json(res, 400, { error: "먼저 브라우저 열기" });
+      if (state.batch?.running) return json(res, 400, { error: "이미 실행 중" });
+      const { limit } = await body(req);
+      runBatch(Math.max(1, Math.min(Number(limit) || 1, 50))); // background (not awaited)
+      return json(res, 200, { ok: true });
     }
     if (req.method === "POST" && url.pathname === "/api/unlock") {
       const { master, operator } = await body(req);
