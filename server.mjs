@@ -35,6 +35,16 @@ async function runBatch(limit) {
   if (!fs.existsSync("codes.txt")) { state.batch = { running: false, error: "codes.txt 없음 — ② 작업 큐를 먼저 만드세요." }; return; }
   const codes = fs.readFileSync("codes.txt", "utf8").split(/\r?\n/).map((s) => s.trim()).filter(Boolean).slice(0, limit);
   const s = loadSettings();
+  // code -> hotel name (from queue.csv) for research links
+  const hotelNames = {};
+  try {
+    if (fs.existsSync("queue.csv")) {
+      const lines = fs.readFileSync("queue.csv", "utf8").replace(/^﻿/, "").split(/\r?\n/);
+      const hdr = (lines[0] || "").split('","').map((x) => x.replace(/^"|"$/g, ""));
+      const ci = hdr.indexOf("Hotel Code"), ni = hdr.indexOf("Hotel Name");
+      for (const ln of lines.slice(1)) { const c = ln.split('","').map((x) => x.replace(/^"|"$/g, "")); if (c[ci]) hotelNames[c[ci]] = c[ni]; }
+    }
+  } catch { /* ignore */ }
   state.batch = { running: true, total: codes.length, done: 0, current: "", results: [], error: null };
   for (const code of codes) {
     state.batch.current = code;
@@ -48,7 +58,7 @@ async function runBatch(limit) {
           if (tables.master) {
             const { merchant, candidates } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
             const best = candidates[0];
-            state.batch.results.push({ code, roomCode: rooms[i].roomCode, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5) });
+            state.batch.results.push({ code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5) });
             audit({ operator: state.operator, client: state.activeClient?.name, action: "BATCH_RECOMMEND", code, room: rooms[i].nameEN, recommendedName: best?.name, score: best?.score, band: best?.band });
           }
         } catch { /* skip this room */ }

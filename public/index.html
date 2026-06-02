@@ -37,6 +37,8 @@
   .ok { color:#15803d; } .err { color:#b91c1c; }
   label.w { display:flex; align-items:center; gap:8px; font-size:12px; }
   label.w input[type=range]{ flex:1; }
+  .rlink { display:inline-block; border:1px solid #cbd5e1; border-radius:7px; padding:4px 9px; font-size:12px; color:#334155; text-decoration:none; margin:2px 2px 2px 0; }
+  .rlink:hover { background:#f1f5f9; }
 </style>
 </head>
 <body>
@@ -235,8 +237,29 @@ function showCompare(i){
     const p=c.parts||{}; const star = idx===0?'★ ':'';
     return `<tr${idx===0?' style="background:#f0fdf4"':''}><td>${star}후보${idx+1}</td>${attrCells(c)}<td><b>${c.score}%</b> <span class="pill ${bandCls(c.band)}">${c.band}</span></td><td class="muted">${[p.name,p.bed,p.type,p.grade,p.view,p.area,p.smoke].join('/')}</td></tr>`;
   }).join("");
-  w.innerHTML = `<div class="card" style="border-color:#c7d2fe"><div style="font-size:13px;font-weight:700;margin-bottom:8px">비교: ${r.room} (호텔 ${r.code})</div><div class="scroll"><table>${head}${mrow}${crows}</table></div><p class="muted" style="margin-top:8px">★ = AMS 1순위. 베드 충돌/속성 불일치는 점수에 반영됩니다. (호텔 웹사이트·타 OTA 비교는 다음 단계)</p></div>`;
+  const hotel = r.hotelName || r.code;
+  const links = researchLinks(hotel, r.room);
+  const linkHtml = links.map(l=>`<a href="${l[1]}" target="_blank" rel="noopener" class="rlink">🔎 ${l[0]}</a>`).join(" ");
+  w.innerHTML = `<div class="card" style="border-color:#c7d2fe"><div style="font-size:13px;font-weight:700;margin-bottom:8px">비교: ${r.room} (${hotel})</div><div class="scroll"><table>${head}${mrow}${crows}</table></div>
+    <div style="margin-top:10px"><div class="muted" style="margin-bottom:6px">외부 소스 리서치 (새 탭으로 열림):</div>${linkHtml} <button class="ghost" style="padding:4px 9px" onclick='copyAi(${i})'>AI 비교 프롬프트 복사</button> <span id="aiMsg${i}" class="muted"></span></div>
+    <p class="muted" style="margin-top:8px">★ = AMS 1순위. 자동 추출·통합 비교(웹·OTA 데이터를 표에 직접)는 다음 단계입니다.</p></div>`;
   w.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function gsearch(q){ return "https://www.google.com/search?q="+encodeURIComponent(q.replace(/\s+/g," ").trim()); }
+function researchLinks(hotel, room){
+  return [
+    ["호텔 공식", gsearch(hotel+" official website "+room)],
+    ["Agoda", gsearch("site:agoda.com "+hotel+" "+room)],
+    ["Booking", gsearch("site:booking.com "+hotel+" "+room)],
+    ["Trip.com", gsearch("site:trip.com "+hotel+" "+room)],
+    ["지도", "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(hotel)],
+  ];
+}
+async function copyAi(i){
+  const r=BATCH[i]; const m=r.merchant||{}, b=r.best||{};
+  const p=`다음 두 호텔 객실이 동일한 룸타입인지 확인해줘. 호텔 공식 웹사이트와 OTA(Agoda/Booking/Trip.com)를 참고해줘.\n\n호텔: ${r.hotelName||r.code}\n우리 룸: ${m.name} (베드 ${m.bed||'?'}, 점유 ${m.occ||'?'}, 평수 ${m.area||'?'}㎡, 창문 ${m.view||'?'}, 흡연 ${m.smoke||'?'})\n후보(시트립): ${b.name} (베드 ${b.bed||'?'}, 점유 ${b.occ||'?'}, 평수 ${b.area||'?'}㎡, 창문 ${b.view||'?'}, 흡연 ${b.smoke||'?'})\n\n다음을 알려줘: 1) 동일 룸 여부 2) 신뢰도(높음/보통/낮음) 3) 핵심 차이 4) 매핑 권장 여부.`;
+  await navigator.clipboard.writeText(p);
+  $("aiMsg"+i).innerHTML='<span class="ok">복사됨 — ChatGPT/Claude에 붙여넣기</span>';
 }
 async function dump() {
   $("runMsg").textContent = "저장 중…";
