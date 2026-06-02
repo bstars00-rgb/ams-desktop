@@ -223,6 +223,16 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.on("error", (e) => {
+  if (e.code === "EADDRINUSE") {
+    console.error(`\n⚠ 포트 ${PORT}가 이미 사용 중입니다 — 다른 창에서 서버가 이미 켜져 있어요.`);
+    console.error(`   해결: 모든 cmd 창을 닫고 START.bat을 한 번만 실행하거나,`);
+    console.error(`        브라우저에서 http://localhost:${PORT} 로 그냥 사용하세요.\n`);
+    process.exit(1);
+  }
+  console.error(e);
+});
+
 server.listen(PORT, () => {
   const link = `http://localhost:${PORT}`;
   console.log(`\nAMS Desktop control panel → ${link}`);
