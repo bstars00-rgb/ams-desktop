@@ -74,9 +74,9 @@ async function runBatch(limit, offset = 0) {
           const tables = await readPage(state.page);
           console.log(`[batch]   room ${i + 1}/${rooms.length} "${rooms[i].nameEN}" master=${!!tables.master}`);
           if (tables.master) {
-            const { merchant, candidates } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
+            const { merchant, candidates, cols } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
             const best = candidates[0];
-            state.batch.results.push({ code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5) });
+            state.batch.results.push({ code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5), cols });
             audit({ operator: state.operator, client: state.activeClient?.name, action: "BATCH_RECOMMEND", code, room: rooms[i].nameEN, recommendedName: best?.name, score: best?.score, band: best?.band });
           }
         } catch (e) { console.log(`[batch]   room ${i + 1} ERROR: ${e?.message || e}`); }

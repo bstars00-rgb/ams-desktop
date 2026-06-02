@@ -243,23 +243,32 @@ function renderBatch(b) {
       BATCH.map((r,i)=>`<tr style="cursor:pointer" onclick="showCompare(${i})"><td>${r.code}</td><td>${r.room||''}</td><td>${r.best.name||''} <span class="muted">(${r.best.id||''})</span></td><td>${r.best.score}%</td><td><span class="pill ${bandCls(r.best.band)}">${r.best.band}</span></td></tr>`).join("");
   }
 }
-function attrCells(o){ return `<td>${o.name||''}</td><td>${o.bed||''}</td><td>${o.occ||''}</td><td>${o.area||''}</td><td>${o.view||''}</td><td>${o.smoke||''}</td>`; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function showCompare(i){
   const r = BATCH[i]; if(!r) return;
   const w = $("compareWrap"); w.classList.remove("hide");
-  const head = `<tr><th>구분</th><th>룸명</th><th>베드</th><th>점유</th><th>평수</th><th>창문</th><th>흡연</th><th>점수</th><th>세부(이름/베드/타입/등급/뷰/평수/흡연)</th></tr>`;
-  const mrow = `<tr style="background:#eef3ff"><td><b>우리 룸</b></td>${attrCells(r.merchant||{})}<td>—</td><td>—</td></tr>`;
-  const crows = (r.candidates||[]).map((c,idx)=>{
-    const p=c.parts||{}; const star = idx===0?'★ ':'';
-    return `<tr${idx===0?' style="background:#f0fdf4"':''}><td>${star}후보${idx+1}</td>${attrCells(c)}<td><b>${c.score}%</b> <span class="pill ${bandCls(c.band)}">${c.band}</span></td><td class="muted">${[p.name,p.bed,p.type,p.grade,p.view,p.area,p.smoke].join('/')}</td></tr>`;
-  }).join("");
+  const cols = r.cols||{}; const mh=cols.merchantHeaders||[], mr=cols.merchantRow||[], xh=cols.masterHeaders||[];
+  // 우리 룸 — 시트립 모달의 모든 native 컬럼 그대로
+  const ourTbl = mh.length
+    ? `<div class="muted" style="margin:6px 0 4px"><b>우리 룸</b> (Merchant — 전체 컬럼)</div><div class="scroll"><table><tr>${mh.map(h=>`<th>${esc(h)}</th>`).join('')}</tr><tr style="background:#eef3ff">${mh.map((_,k)=>`<td>${esc(mr[k])}</td>`).join('')}</tr></table></div>`
+    : '<div class="muted">우리 룸 컬럼 없음</div>';
+  // 시트립 후보 — 모든 native 컬럼 + AMS 점수/밴드 (점수순)
+  const candTbl = xh.length
+    ? `<div class="muted" style="margin:12px 0 4px"><b>시트립 후보</b> (Master — 전체 컬럼 + AMS)</div><div class="scroll"><table><tr><th>AMS</th>${xh.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>`
+      + (r.candidates||[]).map((c,idx)=>{
+          const row=c.row||[]; const star=idx===0?'★ ':'';
+          return `<tr${idx===0?' style="background:#f0fdf4"':''}><td style="white-space:nowrap">${star}<b>${c.score}%</b> <span class="pill ${bandCls(c.band)}">${c.band}</span></td>${xh.map((_,k)=>`<td>${esc(row[k])}</td>`).join('')}</tr>`;
+        }).join('')
+      + `</table></div>`
+    : '<div class="muted">후보 컬럼 없음</div>';
   const hotel = r.hotelName || r.code;
   const links = researchLinks(hotel, r.room);
-  const linkHtml = links.map(l=>`<a href="${l[1]}" target="_blank" rel="noopener" class="rlink">🔎 ${l[0]}</a>`).join(" ");
-  w.innerHTML = `<div class="card" style="border-color:#c7d2fe"><div style="font-size:13px;font-weight:700;margin-bottom:8px">비교: ${r.room} (${hotel})</div><div class="scroll"><table>${head}${mrow}${crows}</table></div>
-    <div style="margin-top:10px"><div class="muted" style="margin-bottom:6px">외부 소스 리서치 (새 탭으로 열림):</div>${linkHtml} <button class="ghost" style="padding:4px 9px" onclick='copyAi(${i})'>AI 비교 프롬프트 복사</button> <button style="padding:4px 9px" onclick='aiResearch(${i})'>🤖 AI 외부 검증</button> <span id="aiMsg${i}" class="muted"></span></div>
+  const linkHtml = links.map(l=>`<a href="${l[1]}" target="_blank" rel="noopener" class="rlink">🔎 ${esc(l[0])}</a>`).join(" ");
+  w.innerHTML = `<div class="card" style="border-color:#c7d2fe"><div style="font-size:13px;font-weight:700;margin-bottom:8px">비교: ${esc(r.room)} (${esc(hotel)})</div>
+    ${ourTbl}${candTbl}
+    <div style="margin-top:10px"><div class="muted" style="margin-bottom:6px">외부 소스 리서치:</div>${linkHtml} <button class="ghost" style="padding:4px 9px" onclick='copyAi(${i})'>AI 비교 프롬프트 복사</button> <button style="padding:4px 9px" onclick='aiResearch(${i})'>🤖 AI 외부 검증</button> <span id="aiMsg${i}" class="muted"></span></div>
     <div id="airOut${i}"></div>
-    <p class="muted" style="margin-top:8px">★ = AMS 1순위. 자동 추출·통합 비교(웹·OTA 데이터를 표에 직접)는 다음 단계입니다.</p></div>`;
+    <p class="muted" style="margin-top:8px">★ = AMS 1순위. 위 두 표는 시트립 모달의 <b>모든 컬럼</b>을 그대로 가져온 것입니다.</p></div>`;
   w.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 function gsearch(q){ return "https://www.google.com/search?q="+encodeURIComponent(q.replace(/\s+/g," ").trim()); }
