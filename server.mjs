@@ -113,6 +113,14 @@ const server = http.createServer(async (req, res) => {
       await ensureBrowser(client);
       return json(res, 200, { ok: true });
     }
+    if (req.method === "POST" && url.pathname === "/api/dump") {
+      if (!state.page) return json(res, 400, { error: "open the browser first" });
+      fs.mkdirSync("reports", { recursive: true });
+      const f = `reports/page-${Date.now()}.html`;
+      await fs.promises.writeFile(f, await state.page.content());
+      await state.page.screenshot({ path: f.replace(/\.html$/, ".png"), fullPage: true }).catch(() => {});
+      return json(res, 200, { ok: true, file: f });
+    }
     if (req.method === "POST" && url.pathname === "/api/recommend") {
       if (!state.page) return json(res, 400, { error: "open the browser first" });
       const s = loadSettings();

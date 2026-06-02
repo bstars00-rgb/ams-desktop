@@ -94,6 +94,7 @@
       <select id="runClient"></select>
       <button onclick="openBrowser()">브라우저 열기</button>
       <button class="ghost" onclick="recommend()">현재 화면 추천 ★</button>
+      <button class="ghost" onclick="dump()">현재 화면 HTML 저장</button>
       <span id="runMsg" class="muted"></span>
     </div>
     <div class="scroll hide" id="resultWrap" style="margin-top:12px"><table id="resultTable"></table></div>
@@ -185,6 +186,11 @@ async function recommend() {
   if (!r.ok){ $("runMsg").innerHTML = r.error==="no_table" ? '<span class="err">화면을 못 읽음 — reports/page.html 저장됨</span>' : '<span class="err">'+(r.error||"실패")+'</span>'; return; }
   $("runMsg").innerHTML = `<span class="ok">추천: ${r.rec.best} (${r.rec.score}%)</span> — 브라우저의 파란 줄 확인 후 직접 클릭`;
   refresh();
+}
+async function dump() {
+  $("runMsg").textContent = "저장 중…";
+  const r = await api("/api/dump", {});
+  $("runMsg").innerHTML = r.ok ? `<span class="ok">저장됨: ${r.file}</span> (이 파일을 보내주세요)` : '<span class="err">'+(r.error||"실패")+'</span>';
 }
 async function saveSettings() {
   const weights = {}; WK.forEach(k=>weights[k]=Number($("w_"+k).value));
