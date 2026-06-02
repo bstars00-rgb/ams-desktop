@@ -130,6 +130,17 @@
         <span id="setMsg" class="muted"></span>
       </div>
     </div>
+    <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px">AI 외부 추출 <span id="aiState" class="muted"></span></div>
+      <p class="hint">호텔 공식 웹사이트를 자동으로 찾아 AI가 룸 속성을 추출·비교합니다. 키는 이 PC 금고에만 저장됩니다.</p>
+      <div class="row">
+        <select id="aiProvider"><option value="openai">OpenAI</option><option value="claude">Claude</option></select>
+        <input id="aiModel" placeholder="모델(선택)" style="width:170px"/>
+        <input id="aiKey" type="password" placeholder="API 키 (저장 후 표시 안 됨)" style="width:240px"/>
+        <button onclick="saveAiKey()">AI 키 저장</button>
+        <span id="aiKeyMsg" class="muted"></span>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -167,6 +178,8 @@ async function refresh() {
 
   // settings
   $("autoTh").value = s.settings.autoThreshold; $("reviewTh").value = s.settings.reviewThreshold;
+  $("aiState").innerHTML = s.aiConfigured ? '<span class="ok">설정됨 ('+s.aiProvider+')</span>' : '미설정';
+  if (s.aiProvider) $("aiProvider").value = s.aiProvider;
   $("weights").innerHTML = WK.map(k=>`<label class="w">${WLABEL[k]} <input type="range" min="0" max="100" id="w_${k}" value="${s.settings.weights[k]}" oninput="this.nextElementSibling.textContent=this.value"/><span style="width:28px;text-align:right">${s.settings.weights[k]}</span></label>`).join("");
 
   // results
@@ -241,7 +254,8 @@ function showCompare(i){
   const links = researchLinks(hotel, r.room);
   const linkHtml = links.map(l=>`<a href="${l[1]}" target="_blank" rel="noopener" class="rlink">🔎 ${l[0]}</a>`).join(" ");
   w.innerHTML = `<div class="card" style="border-color:#c7d2fe"><div style="font-size:13px;font-weight:700;margin-bottom:8px">비교: ${r.room} (${hotel})</div><div class="scroll"><table>${head}${mrow}${crows}</table></div>
-    <div style="margin-top:10px"><div class="muted" style="margin-bottom:6px">외부 소스 리서치 (새 탭으로 열림):</div>${linkHtml} <button class="ghost" style="padding:4px 9px" onclick='copyAi(${i})'>AI 비교 프롬프트 복사</button> <span id="aiMsg${i}" class="muted"></span></div>
+    <div style="margin-top:10px"><div class="muted" style="margin-bottom:6px">외부 소스 리서치 (새 탭으로 열림):</div>${linkHtml} <button class="ghost" style="padding:4px 9px" onclick='copyAi(${i})'>AI 비교 프롬프트 복사</button> <button style="padding:4px 9px" onclick='aiResearch(${i})'>🤖 AI 외부 검증</button> <span id="aiMsg${i}" class="muted"></span></div>
+    <div id="airOut${i}"></div>
     <p class="muted" style="margin-top:8px">★ = AMS 1순위. 자동 추출·통합 비교(웹·OTA 데이터를 표에 직접)는 다음 단계입니다.</p></div>`;
   w.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
@@ -254,6 +268,24 @@ function researchLinks(hotel, room){
     ["Trip.com", gsearch("site:trip.com "+hotel+" "+room)],
     ["지도", "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(hotel)],
   ];
+}
+async function saveAiKey(){
+  const r=await api("/api/ai/key",{provider:$("aiProvider").value, key:$("aiKey").value, model:$("aiModel").value});
+  $("aiKeyMsg").innerHTML = r.ok ? '<span class="ok">저장됨</span>' : '<span class="err">'+(r.error||'실패')+'</span>';
+  $("aiKey").value=""; refresh();
+}
+async function aiResearch(i){
+  const r=BATCH[i]; $("aiMsg"+i).textContent="AI 조회 중… (웹 검색+추출, 10~20초)";
+  const res=await api("/api/ai/research",{hotel:r.hotelName||r.code, room:r.room, ourAttrs:r.merchant, candidateAttrs:r.best});
+  $("aiMsg"+i).textContent="";
+  if(!res.ok){ $("airOut"+i).innerHTML='<div class="card" style="margin-top:8px"><span class="err">'+(res.error||'실패')+'</span></div>'; return; }
+  const d=res.result||{};
+  $("airOut"+i).innerHTML = `<div class="card" style="margin-top:8px;background:#f8fafc;border-color:#c7d2fe">
+    <b>🤖 AI 외부 검증</b> — 동일여부: <b>${d.same_room||'?'}</b> · 신뢰도: <b>${d.confidence||'?'}</b>
+    <div style="margin-top:6px" class="muted">웹 추출: ${d.extracted?JSON.stringify(d.extracted):'—'}</div>
+    <div>차이: ${d.key_differences||'—'}</div>
+    <div>권장: ${d.recommended_action||'—'}</div>
+    ${d.sourceUrl?`<div style="margin-top:4px"><a href="${d.sourceUrl}" target="_blank" rel="noopener">출처 페이지</a></div>`:''}</div>`;
 }
 async function copyAi(i){
   const r=BATCH[i]; const m=r.merchant||{}, b=r.best||{};

@@ -11,6 +11,7 @@ import { findMappingFile, listChannels, buildQueue } from "./lib/queuelib.mjs";
 import { loadSettings, saveSettings } from "./lib/settings.mjs";
 import { readPage, analyze, highlight, dumpPage } from "./lib/recommend.mjs";
 import * as ctrip from "./lib/ctrip.mjs";
+import { aiResearchRoom } from "./lib/ai.mjs";
 import { audit } from "./lib/audit.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -117,7 +118,28 @@ const server = http.createServer(async (req, res) => {
         activeClient: state.activeClient?.name ?? null,
         results: state.results.slice(-50),
         batch: state.batch,
+        aiConfigured: !!state.vault?.ai?.key,
+        aiProvider: state.vault?.ai?.provider ?? "openai",
       });
+    }
+    if (req.method === "POST" && url.pathname === "/api/ai/key") {
+      if (!state.vault) return json(res, 401, { error: "locked" });
+      const { provider, key, model } = await body(req);
+      state.vault.ai = { provider: provider || "openai", key: key || "", model: model || "" };
+      saveVault(state.master, state.vault);
+      return json(res, 200, { ok: true });
+    }
+    if (req.method === "POST" && url.pathname === "/api/ai/research") {
+      if (!state.vault?.ai?.key) return json(res, 400, { error: "AI 키를 먼저 설정하세요 (④ 설정)" });
+      if (!state.context) return json(res, 400, { error: "먼저 브라우저 열기" });
+      const { hotel, room, ourAttrs, candidateAttrs } = await body(req);
+      try {
+        const r = await aiResearchRoom(state.context, state.vault.ai, { hotel, room, ourAttrs, candidateAttrs });
+        audit({ operator: state.operator, client: state.activeClient?.name, action: "AI_RESEARCH", hotel, room, verdict: r.same_room, confidence: r.confidence });
+        return json(res, 200, { ok: true, result: r });
+      } catch (e) {
+        return json(res, 502, { error: String(e?.message || e) });
+      }
     }
     if (req.method === "POST" && url.pathname === "/api/batch/start") {
       if (!state.page) return json(res, 400, { error: "먼저 브라우저 열기" });
