@@ -119,6 +119,17 @@ async function ensureBrowser(client) {
   } catch { /* manual */ }
 }
 
+// A separate, hidden (headless) browser just for AI research — so it never
+// pops tabs in the user's working Room Mapping window.
+async function researchContext() {
+  if (state.researchCtx) return state.researchCtx;
+  state.researchBrowser = await chromium.launch({ headless: true });
+  state.researchCtx = await state.researchBrowser.newContext({
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  });
+  return state.researchCtx;
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   try {
@@ -157,7 +168,7 @@ const server = http.createServer(async (req, res) => {
       if (!state.context) return json(res, 400, { error: "먼저 브라우저 열기" });
       const { hotel, room, ourAttrs, candidateAttrs } = await body(req);
       try {
-        const r = await aiResearchRoom(state.context, state.vault.ai, { hotel, room, ourAttrs, candidateAttrs });
+        const r = await aiResearchRoom(await researchContext(), state.vault.ai, { hotel, room, ourAttrs, candidateAttrs });
         audit({ operator: state.operator, client: state.activeClient?.name, action: "AI_RESEARCH", hotel, room, verdict: r.same_room, confidence: r.confidence });
         return json(res, 200, { ok: true, result: r });
       } catch (e) {
