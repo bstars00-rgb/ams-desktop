@@ -51,6 +51,10 @@ async function runBatch(limit) {
   await state.context.storageState({ path: state._sessionFile }).catch(() => {});
   console.log(`[batch] start — ${codes.length} hotel(s)`);
   for (const code of codes) {
+    if (!state.page || state.page.isClosed()) {
+      state.batch.results.push({ code, error: "에이전트 브라우저가 닫혔습니다 — ③ 브라우저 열기 → 로그인 → 그룹선택 → Room Mapping 화면을 띄운 뒤 다시 스캔하세요. (스캔 중에는 그 창을 닫지 마세요)" });
+      break;
+    }
     state.batch.current = `${code} (조회 중…)`;
     try {
       console.log(`[batch] hotel ${code}: query`);
@@ -77,7 +81,12 @@ async function runBatch(limit) {
         } catch (e) { console.log(`[batch]   room ${i + 1} ERROR: ${e?.message || e}`); }
         finally { await ctrip.closeModal(state.page).catch(() => {}); }
       }
-    } catch (e) { console.log(`[batch] hotel ${code} ERROR: ${e?.message || e}`); state.batch.results.push({ code, error: String(e?.message || e) }); }
+    } catch (e) {
+      const msg = String(e?.message || e);
+      const friendly = /closed/.test(msg) ? "스캔 도중 에이전트 브라우저 창이 닫혔습니다 — 그 창을 닫지 말고 다시 스캔하세요." : msg;
+      console.log(`[batch] hotel ${code} ERROR: ${msg}`);
+      state.batch.results.push({ code, error: friendly });
+    }
     state.batch.done += 1;
   }
   state.batch.running = false;
