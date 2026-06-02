@@ -48,7 +48,7 @@ async function runBatch(limit) {
           if (tables.master) {
             const { merchant, candidates } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
             const best = candidates[0];
-            state.batch.results.push({ code, roomCode: rooms[i].roomCode, room: rooms[i].nameEN || merchant.name, best, candidates: candidates.slice(0, 5) });
+            state.batch.results.push({ code, roomCode: rooms[i].roomCode, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5) });
             audit({ operator: state.operator, client: state.activeClient?.name, action: "BATCH_RECOMMEND", code, room: rooms[i].nameEN, recommendedName: best?.name, score: best?.score, band: best?.band });
           }
         } catch { /* skip this room */ }

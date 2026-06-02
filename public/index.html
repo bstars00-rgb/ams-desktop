@@ -110,7 +110,9 @@
       <span id="batchMsg" class="muted"></span>
     </div>
     <div id="batchProg" style="margin-top:10px"></div>
-    <div class="scroll hide" id="batchWrap" style="margin-top:10px"><table id="batchTable"></table></div>
+    <p class="muted hide" id="batchTip" style="margin:8px 0 0">행을 클릭하면 우리 룸 ↔ 추천 후보를 모든 컬럼으로 비교합니다.</p>
+    <div class="scroll hide" id="batchWrap" style="margin-top:8px"><table id="batchTable"></table></div>
+    <div id="compareWrap" class="hide" style="margin-top:12px"></div>
   </div>
 
   <!-- 4. 설정 -->
@@ -209,17 +211,32 @@ async function startBatch() {
   $("batchMsg").textContent = r.ok ? "스캔 중… (룸마다 모달을 자동으로 엽니다)" : (r.error||"실패");
   refresh();
 }
+let BATCH = [];
+const bandCls = bd => bd==="AUTO"?"auto":bd==="REVIEW"?"review":"nomatch";
 function renderBatch(b) {
   if (!b) return;
   $("batchProg").innerHTML = b.error ? `<span class="err">${b.error}</span>`
     : `<span class="stat">진행 <b>${b.done}/${b.total}</b></span> ${b.running?`<span class="muted">처리 중: 호텔 ${b.current}</span>`:'<span class="ok">완료</span>'} <span class="stat">추천 <b>${(b.results||[]).filter(r=>r.best).length}</b></span>`;
-  const rows = (b.results||[]).filter(r=>r.best);
-  if (rows.length) {
+  BATCH = (b.results||[]).filter(r=>r.best);
+  if (BATCH.length) {
+    $("batchTip").classList.remove("hide");
     $("batchWrap").classList.remove("hide");
-    const cls = bd => bd==="AUTO"?"auto":bd==="REVIEW"?"review":"nomatch";
     $("batchTable").innerHTML = "<tr><th>호텔</th><th>우리 룸(언맵)</th><th>추천 시트립 룸</th><th>점수</th><th>밴드</th></tr>"+
-      rows.map(r=>`<tr><td>${r.code}</td><td>${r.room||''}</td><td>${r.best.name||''} <span class="muted">(${r.best.id||''})</span></td><td>${r.best.score}%</td><td><span class="pill ${cls(r.best.band)}">${r.best.band}</span></td></tr>`).join("");
+      BATCH.map((r,i)=>`<tr style="cursor:pointer" onclick="showCompare(${i})"><td>${r.code}</td><td>${r.room||''}</td><td>${r.best.name||''} <span class="muted">(${r.best.id||''})</span></td><td>${r.best.score}%</td><td><span class="pill ${bandCls(r.best.band)}">${r.best.band}</span></td></tr>`).join("");
   }
+}
+function attrCells(o){ return `<td>${o.name||''}</td><td>${o.bed||''}</td><td>${o.occ||''}</td><td>${o.area||''}</td><td>${o.view||''}</td><td>${o.smoke||''}</td>`; }
+function showCompare(i){
+  const r = BATCH[i]; if(!r) return;
+  const w = $("compareWrap"); w.classList.remove("hide");
+  const head = `<tr><th>구분</th><th>룸명</th><th>베드</th><th>점유</th><th>평수</th><th>창문</th><th>흡연</th><th>점수</th><th>세부(이름/베드/타입/등급/뷰/평수/흡연)</th></tr>`;
+  const mrow = `<tr style="background:#eef3ff"><td><b>우리 룸</b></td>${attrCells(r.merchant||{})}<td>—</td><td>—</td></tr>`;
+  const crows = (r.candidates||[]).map((c,idx)=>{
+    const p=c.parts||{}; const star = idx===0?'★ ':'';
+    return `<tr${idx===0?' style="background:#f0fdf4"':''}><td>${star}후보${idx+1}</td>${attrCells(c)}<td><b>${c.score}%</b> <span class="pill ${bandCls(c.band)}">${c.band}</span></td><td class="muted">${[p.name,p.bed,p.type,p.grade,p.view,p.area,p.smoke].join('/')}</td></tr>`;
+  }).join("");
+  w.innerHTML = `<div class="card" style="border-color:#c7d2fe"><div style="font-size:13px;font-weight:700;margin-bottom:8px">비교: ${r.room} (호텔 ${r.code})</div><div class="scroll"><table>${head}${mrow}${crows}</table></div><p class="muted" style="margin-top:8px">★ = AMS 1순위. 베드 충돌/속성 불일치는 점수에 반영됩니다. (호텔 웹사이트·타 OTA 비교는 다음 단계)</p></div>`;
+  w.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 async function dump() {
   $("runMsg").textContent = "저장 중…";
