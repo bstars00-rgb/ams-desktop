@@ -32,9 +32,10 @@ const state = {
 
 // Auto-scan: for each hotel code in codes.txt, Query → open each unmapped room's
 // modal → AMS recommend → collect. Never clicks the final "Mapping" (human decides).
-async function runBatch(limit) {
+async function runBatch(limit, offset = 0) {
   if (!fs.existsSync("codes.txt")) { state.batch = { running: false, error: "codes.txt 없음 — ② 작업 큐를 먼저 만드세요." }; return; }
-  const codes = fs.readFileSync("codes.txt", "utf8").split(/\r?\n/).map((s) => s.trim()).filter(Boolean).slice(0, limit);
+  const allCodes = fs.readFileSync("codes.txt", "utf8").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  const codes = allCodes.slice(offset, offset + limit);
   const s = loadSettings();
   // code -> hotel name (from queue.csv) for research links
   const hotelNames = {};
@@ -49,7 +50,7 @@ async function runBatch(limit) {
   state.batch = { running: true, total: codes.length, done: 0, current: "", results: [], error: null };
   // Persist the (now logged-in) session so future runs skip the manual login.
   await state.context.storageState({ path: state._sessionFile }).catch(() => {});
-  console.log(`[batch] start — ${codes.length} hotel(s)`);
+  console.log(`[batch] start — ${codes.length} hotel(s) (codes ${offset + 1}–${offset + codes.length} of ${allCodes.length})`);
   for (const code of codes) {
     if (!state.page || state.page.isClosed()) {
       state.batch.results.push({ code, error: "에이전트 브라우저가 닫혔습니다 — ③ 브라우저 열기 → 로그인 → 그룹선택 → Room Mapping 화면을 띄운 뒤 다시 스캔하세요. (스캔 중에는 그 창을 닫지 마세요)" });
@@ -166,8 +167,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/batch/start") {
       if (!state.page) return json(res, 400, { error: "먼저 브라우저 열기" });
       if (state.batch?.running) return json(res, 400, { error: "이미 실행 중" });
-      const { limit } = await body(req);
-      runBatch(Math.max(1, Math.min(Number(limit) || 1, 50))); // background (not awaited)
+      const { limit, offset } = await body(req);
+      runBatch(Math.max(1, Math.min(Number(limit) || 1, 50)), Math.max(0, Number(offset) || 0)); // background (not awaited)
       return json(res, 200, { ok: true });
     }
     if (req.method === "POST" && url.pathname === "/api/unlock") {

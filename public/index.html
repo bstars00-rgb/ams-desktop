@@ -107,7 +107,8 @@
     <h2>③-2 자동 스캔 (codes.txt → 룸별 추천 자동 수집)</h2>
     <p class="hint"><b>스캔 전 준비(중요):</b> ③ 브라우저 열기 → 시트립 로그인 → <b>Account에서 그룹 선택(1210/1311)</b> → <b>Mapping center → Room Mapping</b> 화면을 띄워두세요. 그 화면에서 호텔코드만 바꿔가며 자동 조회→룸 모달→AMS 추천을 모읍니다. <b>최종 [Mapping] 클릭은 사람.</b></p>
     <div class="row">
-      <label class="muted">최대 호텔 수 <input id="batchLimit" type="number" value="1" min="1" max="50" style="width:64px"/></label>
+      <label class="muted">시작 위치 <input id="batchOffset" type="number" value="0" min="0" style="width:72px"/></label>
+      <label class="muted">최대 호텔 수 <input id="batchLimit" type="number" value="20" min="1" max="50" style="width:64px"/></label>
       <button onclick="startBatch()">자동 스캔 시작</button>
       <span id="batchMsg" class="muted"></span>
     </div>
@@ -222,7 +223,7 @@ async function recommend() {
 }
 async function startBatch() {
   $("batchMsg").textContent = "시작 중…";
-  const r = await api("/api/batch/start", { limit: Number($("batchLimit").value) });
+  const r = await api("/api/batch/start", { limit: Number($("batchLimit").value), offset: Number($("batchOffset").value) });
   $("batchMsg").textContent = r.ok ? "스캔 중… (룸마다 모달을 자동으로 엽니다)" : (r.error||"실패");
   refresh();
 }
