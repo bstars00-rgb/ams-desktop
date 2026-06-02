@@ -47,6 +47,8 @@ async function runBatch(limit) {
     }
   } catch { /* ignore */ }
   state.batch = { running: true, total: codes.length, done: 0, current: "", results: [], error: null };
+  // Persist the (now logged-in) session so future runs skip the manual login.
+  await state.context.storageState({ path: state._sessionFile }).catch(() => {});
   console.log(`[batch] start — ${codes.length} hotel(s)`);
   for (const code of codes) {
     state.batch.current = `${code} (조회 중…)`;
