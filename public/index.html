@@ -230,8 +230,10 @@ let BATCH = [];
 const bandCls = bd => bd==="AUTO"?"auto":bd==="REVIEW"?"review":"nomatch";
 function renderBatch(b) {
   if (!b) return;
-  $("batchProg").innerHTML = b.error ? `<span class="err">${b.error}</span>`
-    : `<span class="stat">진행 <b>${b.done}/${b.total}</b></span> ${b.running?`<span class="muted">처리 중: 호텔 ${b.current}</span>`:'<span class="ok">완료</span>'} <span class="stat">추천 <b>${(b.results||[]).filter(r=>r.best).length}</b></span>`;
+  const probs = (b.results||[]).filter(r=>!r.best).map(r=>`${r.code}: ${r.error||r.note||'?'}`);
+  $("batchProg").innerHTML = (b.error ? `<span class="err">${b.error}</span><br>` : '')
+    + `<span class="stat">진행 <b>${b.done}/${b.total}</b></span> ${b.running?`<span class="muted">처리 중: ${b.current||''}</span>`:'<span class="ok">완료</span>'} <span class="stat">추천 <b>${(b.results||[]).filter(r=>r.best).length}</b></span>`
+    + (probs.length?`<div class="muted" style="margin-top:6px">⚠ ${probs.slice(0,5).join(' / ')}</div>`:'');
   BATCH = (b.results||[]).filter(r=>r.best);
   if (BATCH.length) {
     $("batchTip").classList.remove("hide");

@@ -47,28 +47,35 @@ async function runBatch(limit) {
     }
   } catch { /* ignore */ }
   state.batch = { running: true, total: codes.length, done: 0, current: "", results: [], error: null };
+  console.log(`[batch] start — ${codes.length} hotel(s)`);
   for (const code of codes) {
-    state.batch.current = code;
+    state.batch.current = `${code} (조회 중…)`;
     try {
+      console.log(`[batch] hotel ${code}: query`);
       await ctrip.query(state.page, code);
       const rooms = await ctrip.unmappedRooms(state.page);
+      console.log(`[batch] hotel ${code}: ${rooms.length} unmapped room(s)`);
+      if (!rooms.length) state.batch.results.push({ code, note: "안 된 룸 없음 (또는 목록 못 읽음)" });
       for (let i = 0; i < rooms.length; i++) {
+        state.batch.current = `${code} · 룸 ${i + 1}/${rooms.length}`;
         try {
           await ctrip.openModal(state.page, i);
           const tables = await readPage(state.page);
+          console.log(`[batch]   room ${i + 1}/${rooms.length} "${rooms[i].nameEN}" master=${!!tables.master}`);
           if (tables.master) {
             const { merchant, candidates } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
             const best = candidates[0];
             state.batch.results.push({ code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5) });
             audit({ operator: state.operator, client: state.activeClient?.name, action: "BATCH_RECOMMEND", code, room: rooms[i].nameEN, recommendedName: best?.name, score: best?.score, band: best?.band });
           }
-        } catch { /* skip this room */ }
+        } catch (e) { console.log(`[batch]   room ${i + 1} ERROR: ${e?.message || e}`); }
         finally { await ctrip.closeModal(state.page).catch(() => {}); }
       }
-    } catch (e) { state.batch.results.push({ code, error: String(e?.message || e) }); }
+    } catch (e) { console.log(`[batch] hotel ${code} ERROR: ${e?.message || e}`); state.batch.results.push({ code, error: String(e?.message || e) }); }
     state.batch.done += 1;
   }
   state.batch.running = false;
+  console.log(`[batch] done — ${state.batch.results.filter((r) => r.best).length} recommendation(s)`);
 }
 
 const json = (res, code, obj) => { res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)); };
