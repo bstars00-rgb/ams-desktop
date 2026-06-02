@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AMS Desktop — 매핑 콘솔</title>
+<style>
+  :root { --b:#2f55d4; --b2:#243f99; --line:#e5e7eb; --bg:#f4f6fb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Malgun Gothic",system-ui,sans-serif; background:var(--bg); color:#0f172a; }
+  header { background:#fff; border-bottom:1px solid var(--line); padding:14px 22px; display:flex; align-items:center; gap:12px; }
+  header .logo { width:34px;height:34px;border-radius:8px;background:var(--b);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px; }
+  header h1 { font-size:16px; margin:0; }
+  header .sub { font-size:12px; color:#64748b; }
+  .wrap { max-width:1050px; margin:18px auto; padding:0 18px; display:grid; gap:16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px; }
+  .card h2 { margin:0 0 4px; font-size:14px; }
+  .card p.hint { margin:0 0 12px; font-size:12px; color:#64748b; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  input,select { border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; font-size:13px; outline:none; }
+  input:focus,select:focus { border-color:var(--b); }
+  button { background:var(--b); color:#fff; border:0; border-radius:8px; padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer; }
+  button:hover { background:var(--b2); }
+  button.ghost { background:#fff; color:#334155; border:1px solid #cbd5e1; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid #f1f5f9; white-space:nowrap; }
+  th { color:#64748b; font-weight:600; background:#f8fafc; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+  .auto{background:#dcfce7;color:#15803d} .review{background:#fef3c7;color:#b45309} .nomatch{background:#fee2e2;color:#b91c1c}
+  .stat { display:inline-flex; gap:6px; align-items:center; background:#fff; border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:12px; }
+  .stat b { color:var(--b2); }
+  .muted { color:#94a3b8; font-size:12px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .scroll { overflow:auto; max-height:340px; border:1px solid var(--line); border-radius:8px; }
+  .hide { display:none; }
+  .ok { color:#15803d; } .err { color:#b91c1c; }
+  label.w { display:flex; align-items:center; gap:8px; font-size:12px; }
+  label.w input[type=range]{ flex:1; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">AMS</div>
+  <div><h1>AMS Desktop — 매핑 콘솔</h1><div class="sub">로컬 전용 · 비밀번호·로그는 이 PC에만</div></div>
+  <div style="margin-left:auto" id="topstat"></div>
+</header>
+
+<div class="wrap">
+  <!-- 0. 잠금 해제 -->
+  <div class="card" id="lockCard">
+    <h2>🔐 잠금 해제</h2>
+    <p class="hint">금고를 열면 등록된 고객/설정을 사용할 수 있습니다. 처음이면 마스터 비밀번호를 새로 정하세요.</p>
+    <div class="row">
+      <input id="operator" placeholder="내 이름 (로그용)" />
+      <input id="master" type="password" placeholder="마스터 비밀번호" />
+      <button onclick="unlock()">잠금 해제</button>
+      <span id="lockMsg" class="muted"></span>
+    </div>
+  </div>
+
+  <!-- 1. 고객(금고) -->
+  <div class="card hide" id="clientCard">
+    <h2>① 고객 (금고)</h2>
+    <p class="hint">매핑 시스템 로그인 정보를 암호화해 저장합니다. (비번은 이 PC에만)</p>
+    <div id="clientList" class="muted"></div>
+    <div class="row" style="margin-top:12px">
+      <input id="cName" placeholder="이름 (예: Ctrip)" />
+      <input id="cUrl" placeholder="로그인 URL" size="34" />
+      <input id="cId" placeholder="ID / 이메일" />
+      <input id="cPw" type="password" placeholder="비밀번호" />
+      <button onclick="addClient()">추가</button>
+    </div>
+  </div>
+
+  <!-- 2. 작업 큐 -->
+  <div class="card hide" id="queueCard">
+    <h2>② 작업 큐 (매핑 리스트에서 추출)</h2>
+    <p class="hint" id="queueHint"></p>
+    <div class="row">
+      <select id="channel"></select>
+      <button onclick="buildQueue()">작업 큐 만들기</button>
+      <span id="queueMsg" class="muted"></span>
+    </div>
+    <div id="queueStats" style="margin-top:12px"></div>
+    <div class="scroll hide" id="queueWrap" style="margin-top:10px"><table id="queueTable"></table></div>
+  </div>
+
+  <!-- 3. 매핑 실행 -->
+  <div class="card hide" id="runCard">
+    <h2>③ 매핑 실행 (추천 — 최종 클릭은 사람)</h2>
+    <p class="hint">고객 브라우저를 열고, 매핑 화면(Recommended Master Rooms)에서 "현재 화면 추천"을 누르면 AMS가 최적 후보를 골라 강조합니다. <b>[Mapping] 클릭은 직접</b> 하세요.</p>
+    <div class="row">
+      <select id="runClient"></select>
+      <button onclick="openBrowser()">브라우저 열기</button>
+      <button class="ghost" onclick="recommend()">현재 화면 추천 ★</button>
+      <span id="runMsg" class="muted"></span>
+    </div>
+    <div class="scroll hide" id="resultWrap" style="margin-top:12px"><table id="resultTable"></table></div>
+  </div>
+
+  <!-- 4. 설정 -->
+  <div class="card hide" id="setCard">
+    <h2>④ 알고리즘 설정</h2>
+    <p class="hint">점수 가중치·임계값. 바꾸면 다음 추천부터 반영됩니다.</p>
+    <div class="grid2">
+      <div id="weights"></div>
+      <div>
+        <label class="w">자동확정 ≥ <input id="autoTh" type="number" min="0" max="100" style="width:70px"/></label>
+        <label class="w" style="margin-top:8px">검토 ≥ <input id="reviewTh" type="number" min="0" max="100" style="width:70px"/></label>
+        <button style="margin-top:12px" onclick="saveSettings()">설정 저장</button>
+        <span id="setMsg" class="muted"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const api = (p, body) => fetch(p, body ? { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) } : {}).then(r=>r.json());
+const WK = ["name","bed","type","grade","view","area","smoke"];
+const WLABEL = {name:"이름",bed:"베드",type:"타입",grade:"등급",view:"뷰",area:"평수",smoke:"흡연"};
+
+async function refresh() {
+  const s = await api("/api/status");
+  $("topstat").innerHTML = `<span class="stat">금고 ${s.unlocked?'<b>열림</b>':'잠김'}</span>
+    <span class="stat">리스트 <b>${s.mappingFile?'있음':'없음'}</b></span>
+    <span class="stat">브라우저 ${s.browserOpen?'<b>열림</b>':'닫힘'}</span>`;
+  // lock vs unlocked
+  $("lockCard").classList.toggle("hide", s.unlocked);
+  ["clientCard","queueCard","runCard","setCard"].forEach(id=>$(id).classList.toggle("hide", !s.unlocked));
+  if (!s.unlocked) return;
+
+  // clients
+  $("clientList").innerHTML = s.clients.length
+    ? s.clients.map(c=>`• <b>${c.name}</b> <span class="muted">${c.url}</span>`).join("<br>")
+    : "(등록된 고객 없음 — 아래에서 추가)";
+  $("runClient").innerHTML = s.clients.map(c=>`<option>${c.name}</option>`).join("");
+
+  // channels
+  $("queueHint").innerHTML = s.mappingFile ? `파일: <b>${s.mappingFile}</b> — 채널을 고르면 'Unmapped' 룸만 뽑습니다.` : "Mapping List 폴더에 엑셀을 넣어주세요.";
+  $("channel").innerHTML = s.channels.map(c=>`<option value="${c.name}">${c.name} (${c.unmapped} unmapped)</option>`).join("");
+
+  // queue
+  if (s.queue) $("queueStats").innerHTML = `<span class="stat">채널 <b>${s.queue.channel}</b></span> <span class="stat">룸 <b>${s.queue.rooms}</b></span> <span class="stat">호텔 <b>${s.queue.hotels}</b></span> <span class="muted">→ queue.csv · codes.txt 생성됨</span>`;
+
+  // settings
+  $("autoTh").value = s.settings.autoThreshold; $("reviewTh").value = s.settings.reviewThreshold;
+  $("weights").innerHTML = WK.map(k=>`<label class="w">${WLABEL[k]} <input type="range" min="0" max="100" id="w_${k}" value="${s.settings.weights[k]}" oninput="this.nextElementSibling.textContent=this.value"/><span style="width:28px;text-align:right">${s.settings.weights[k]}</span></label>`).join("");
+
+  // results
+  renderResults(s.results);
+}
+
+async function unlock() {
+  const r = await api("/api/unlock", { master:$("master").value, operator:$("operator").value });
+  $("lockMsg").innerHTML = r.ok ? '<span class="ok">열림</span>' : '<span class="err">'+(r.error||'실패')+'</span>';
+  if (r.ok) refresh();
+}
+async function addClient() {
+  const r = await api("/api/client", { name:$("cName").value, url:$("cUrl").value, id:$("cId").value, pw:$("cPw").value });
+  if (r.ok){ $("cName").value=$("cUrl").value=$("cId").value=$("cPw").value=""; refresh(); }
+  else alert(r.error||"실패");
+}
+async function buildQueue() {
+  $("queueMsg").textContent = "추출 중…";
+  const r = await api("/api/queue", { channel:$("channel").value });
+  $("queueMsg").textContent = "";
+  if (r.error){ alert(r.error); return; }
+  $("queueStats").innerHTML = `<span class="stat">채널 <b>${r.channel}</b></span> <span class="stat">룸 <b>${r.rooms}</b></span> <span class="stat">호텔 <b>${r.hotels}</b></span> <span class="muted">→ queue.csv · codes.txt 생성됨</span>`;
+  const cols = ["Hotel Code","Hotel Name","Room Name","Bed Type","Room Size"];
+  $("queueWrap").classList.remove("hide");
+  $("queueTable").innerHTML = "<tr>"+cols.map(c=>`<th>${c}</th>`).join("")+"</tr>"+
+    r.preview.map(row=>"<tr>"+cols.map(c=>`<td>${row[c]||""}</td>`).join("")+"</tr>").join("");
+}
+async function openBrowser() {
+  $("runMsg").textContent = "브라우저 여는 중…";
+  const r = await api("/api/browser/open", { client:$("runClient").value });
+  $("runMsg").textContent = r.ok ? "열림 — 매핑 화면으로 이동 후 '현재 화면 추천'" : (r.error||"실패");
+  refresh();
+}
+async function recommend() {
+  $("runMsg").textContent = "읽는 중…";
+  const r = await api("/api/recommend", {});
+  if (!r.ok){ $("runMsg").innerHTML = r.error==="no_table" ? '<span class="err">화면을 못 읽음 — reports/page.html 저장됨</span>' : '<span class="err">'+(r.error||"실패")+'</span>'; return; }
+  $("runMsg").innerHTML = `<span class="ok">추천: ${r.rec.best} (${r.rec.score}%)</span> — 브라우저의 파란 줄 확인 후 직접 클릭`;
+  refresh();
+}
+async function saveSettings() {
+  const weights = {}; WK.forEach(k=>weights[k]=Number($("w_"+k).value));
+  await api("/api/settings", { autoThreshold:Number($("autoTh").value), reviewThreshold:Number($("reviewTh").value), weights });
+  $("setMsg").innerHTML = '<span class="ok">저장됨</span>'; setTimeout(()=>$("setMsg").textContent="",1500);
+}
+function renderResults(results) {
+  if (!results || !results.length) return;
+  $("resultWrap").classList.remove("hide");
+  const cls = b => b==="AUTO"?"auto":b==="REVIEW"?"review":"nomatch";
+  $("resultTable").innerHTML = "<tr><th>시간</th><th>고객사 룸</th><th>추천 우리 룸</th><th>점수</th><th>밴드</th></tr>"+
+    results.slice().reverse().map(r=>`<tr><td>${(r.ts||'').slice(11,19)}</td><td>${r.merchant||''}</td><td>${r.best||''}</td><td>${r.score??''}%</td><td><span class="pill ${cls(r.band)}">${r.band||''}</span></td></tr>`).join("");
+}
+refresh();
+</script>
+</body>
+</html>

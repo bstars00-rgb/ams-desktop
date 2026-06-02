@@ -5,6 +5,12 @@ audit.log
 reports/
 .env
 
+# Data files & generated outputs (stay local)
+Mapping List/
+queue.csv
+codes.txt
+settings.json
+
 # Dependencies / misc
 node_modules/
 *.log
