@@ -57,7 +57,11 @@ async function runBatch(limit) {
       await ctrip.query(state.page, code);
       const rooms = await ctrip.unmappedRooms(state.page);
       console.log(`[batch] hotel ${code}: ${rooms.length} unmapped room(s)`);
-      if (!rooms.length) state.batch.results.push({ code, note: "안 된 룸 없음 (또는 목록 못 읽음)" });
+      if (!rooms.length) {
+        state.batch.results.push({ code, note: "안 된 룸 없음 (또는 목록 못 읽음) — reports/page.html 저장됨" });
+        await dumpPage(state.page).catch(() => {});
+        console.log(`[batch] hotel ${code}: 0 rooms — saved reports/page.html for diagnosis`);
+      }
       for (let i = 0; i < rooms.length; i++) {
         state.batch.current = `${code} · 룸 ${i + 1}/${rooms.length}`;
         try {
