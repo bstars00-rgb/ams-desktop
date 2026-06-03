@@ -9,6 +9,7 @@ import { chromium } from "playwright";
 import { vaultExists, loadVault, saveVault, emptyVault } from "./lib/vault.mjs";
 import { findMappingFile, listChannels, buildQueue } from "./lib/queuelib.mjs";
 import { loadSettings, saveSettings } from "./lib/settings.mjs";
+import { loadCache, saveCache, clearCache, markScanned, coolingDown } from "./lib/scancache.mjs";
 import { readPage, analyze, highlight, dumpPage } from "./lib/recommend.mjs";
 import * as ctrip from "./lib/ctrip.mjs";
 import { aiResearchRoom } from "./lib/ai.mjs";
@@ -35,8 +36,9 @@ const state = {
 async function runBatch(limit, offset = 0) {
   if (!fs.existsSync("codes.txt")) { state.batch = { running: false, error: "codes.txt 없음 — ② 작업 큐를 먼저 만드세요." }; return; }
   const allCodes = fs.readFileSync("codes.txt", "utf8").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-  const codes = allCodes.slice(offset, offset + limit);
   const s = loadSettings();
+  const cooldownMs = Math.max(0, Number(s.cooldownDays) || 0) * 86400000;
+  const cache = loadCache();
   // code -> hotel name (from queue.csv) for research links
   const hotelNames = {};
   try {
@@ -47,26 +49,28 @@ async function runBatch(limit, offset = 0) {
       for (const ln of lines.slice(1)) { const c = ln.split('","').map((x) => x.replace(/^"|"$/g, "")); if (c[ci]) hotelNames[c[ci]] = c[ni]; }
     }
   } catch { /* ignore */ }
-  state.batch = { running: true, total: codes.length, done: 0, current: "", results: [], error: null };
+  state.batch = { running: true, total: limit, done: 0, skipped: 0, current: "", results: [], error: null };
   // Persist the (now logged-in) session so future runs skip the manual login.
   await state.context.storageState({ path: state._sessionFile }).catch(() => {});
-  console.log(`[batch] start — ${codes.length} hotel(s) (codes ${offset + 1}–${offset + codes.length} of ${allCodes.length})`);
-  for (const code of codes) {
+  console.log(`[batch] start — up to ${limit} fresh hotel(s) from #${offset + 1} (cooldown ${s.cooldownDays}d)`);
+  let scanned = 0;
+  for (let ci = offset; ci < allCodes.length && scanned < limit; ci++) {
+    const code = allCodes[ci];
+    // Skip codes recently scanned with no actionable result (or already mapped).
+    if (coolingDown(cache[code], cooldownMs)) { state.batch.skipped += 1; continue; }
     if (!state.page || state.page.isClosed()) {
       state.batch.results.push({ code, error: "에이전트 브라우저가 닫혔습니다 — ③ 브라우저 열기 → 로그인 → 그룹선택 → Room Mapping 화면을 띄운 뒤 다시 스캔하세요. (스캔 중에는 그 창을 닫지 마세요)" });
       break;
     }
+    scanned += 1;
     state.batch.current = `${code} (조회 중…)`;
+    let hadBest = false, hardError = false;
     try {
       console.log(`[batch] hotel ${code}: query`);
       await ctrip.query(state.page, code);
       const rooms = await ctrip.unmappedRooms(state.page);
       console.log(`[batch] hotel ${code}: ${rooms.length} unmapped room(s)`);
-      if (!rooms.length) {
-        state.batch.results.push({ code, note: "안 된 룸 없음 (또는 목록 못 읽음) — reports/page.html 저장됨" });
-        await dumpPage(state.page).catch(() => {});
-        console.log(`[batch] hotel ${code}: 0 rooms — saved reports/page.html for diagnosis`);
-      }
+      if (!rooms.length) state.batch.results.push({ code, note: "미매핑 룸 없음" });
       for (let i = 0; i < rooms.length; i++) {
         state.batch.current = `${code} · 룸 ${i + 1}/${rooms.length}`;
         try {
@@ -76,22 +80,33 @@ async function runBatch(limit, offset = 0) {
           if (tables.master) {
             const { merchant, candidates, cols } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
             const best = candidates[0];
-            state.batch.results.push({ code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, basicRoomId: rooms[i].basicRoomId, roomIndex: i, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5), cols });
-            audit({ operator: state.operator, client: state.activeClient?.name, action: "BATCH_RECOMMEND", code, room: rooms[i].nameEN, recommendedName: best?.name, score: best?.score, band: best?.band });
+            if (best) {
+              state.batch.results.push({ code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, basicRoomId: rooms[i].basicRoomId, roomIndex: i, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5), cols });
+              hadBest = true;
+              audit({ operator: state.operator, client: state.activeClient?.name, action: "BATCH_RECOMMEND", code, room: rooms[i].nameEN, recommendedName: best?.name, score: best?.score, band: best?.band });
+            } else {
+              state.batch.results.push({ code, room: rooms[i].nameEN, note: "시트립 추천 후보 없음" });
+            }
+          } else {
+            state.batch.results.push({ code, room: rooms[i].nameEN, note: "추천 표를 못 읽음" });
           }
         } catch (e) { console.log(`[batch]   room ${i + 1} ERROR: ${e?.message || e}`); }
         finally { await ctrip.closeModal(state.page).catch(() => {}); }
       }
     } catch (e) {
       const msg = String(e?.message || e);
-      const friendly = /closed/.test(msg) ? "스캔 도중 에이전트 브라우저 창이 닫혔습니다 — 그 창을 닫지 말고 다시 스캔하세요." : msg;
+      hardError = true;
       console.log(`[batch] hotel ${code} ERROR: ${msg}`);
-      state.batch.results.push({ code, error: friendly });
+      if (/closed/.test(msg)) { state.batch.results.push({ code, error: "스캔 도중 에이전트 브라우저 창이 닫혔습니다 — 그 창을 닫지 말고 다시 스캔하세요." }); break; }
+      state.batch.results.push({ code, error: msg });
     }
+    // Cache the outcome: actionable -> "hasRooms" (never cools); nothing to do ->
+    // "empty" (cools down). Don't cache hard errors, so they retry next run.
+    if (!hardError) { markScanned(cache, code, hadBest ? "hasRooms" : "empty"); saveCache(cache); }
     state.batch.done += 1;
   }
   state.batch.running = false;
-  console.log(`[batch] done — ${state.batch.results.filter((r) => r.best).length} recommendation(s)`);
+  console.log(`[batch] done — ${state.batch.results.filter((r) => r.best).length} recommendation(s), ${state.batch.skipped} skipped by cooldown`);
 }
 
 const json = (res, code, obj) => { res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(obj)); };
@@ -148,6 +163,7 @@ const server = http.createServer(async (req, res) => {
         channels: file ? listChannels(file) : [],
         queue: state.queue,
         settings: loadSettings(),
+        cacheCount: Object.keys(loadCache()).length,
         browserOpen: !!state.browser,
         activeClient: state.activeClient?.name ?? null,
         results: state.results.slice(-50),
@@ -182,11 +198,18 @@ const server = http.createServer(async (req, res) => {
       if (!code || masterId == null) return json(res, 400, { error: "code/masterId 필요" });
       try {
         const r = await ctrip.prepareMapping(state.page, { code, basicRoomId, roomIndex, masterId });
+        // Cool this hotel down — we assume the human will complete the [Mapping].
+        const c = loadCache(); markScanned(c, code, "mapped"); saveCache(c);
         audit({ operator: state.operator, client: state.activeClient?.name, action: "MAP_PREPARE", code, basicRoomId, masterId, masterName });
         return json(res, 200, { ok: true, ...r });
       } catch (e) {
         return json(res, 502, { error: String(e?.message || e) });
       }
+    }
+    if (req.method === "POST" && url.pathname === "/api/cache/clear") {
+      clearCache();
+      audit({ operator: state.operator, action: "CACHE_CLEAR" });
+      return json(res, 200, { ok: true });
     }
     if (req.method === "POST" && url.pathname === "/api/batch/start") {
       if (!state.page) return json(res, 400, { error: "먼저 브라우저 열기" });

@@ -108,10 +108,11 @@
     <p class="hint"><b>스캔 전 준비(중요):</b> ③ 브라우저 열기 → 시트립 로그인 → <b>Account에서 그룹 선택(1210/1311)</b> → <b>Mapping center → Room Mapping</b> 화면을 띄워두세요. 그 화면에서 호텔코드만 바꿔가며 자동 조회→룸 모달→AMS 추천을 모읍니다. <b>최종 [Mapping] 클릭은 사람.</b></p>
     <div class="row">
       <label class="muted">시작 위치 <input id="batchOffset" type="number" value="0" min="0" style="width:72px"/></label>
-      <label class="muted">최대 호텔 수 <input id="batchLimit" type="number" value="20" min="1" max="50" style="width:64px"/></label>
+      <label class="muted">최대 호텔 수(신규) <input id="batchLimit" type="number" value="20" min="1" max="50" style="width:64px"/></label>
       <button onclick="startBatch()">자동 스캔 시작</button>
       <span id="batchMsg" class="muted"></span>
     </div>
+    <p class="hint" style="margin:6px 0 0">쿨다운 중인(최근에 결과 없던/매핑한) 코드는 자동으로 건너뜁니다. <span id="cacheInfo" class="muted"></span> <button class="ghost" style="padding:2px 8px" onclick="clearCache()">캐시 비우기(전체 재검색)</button></p>
     <div id="batchProg" style="margin-top:10px"></div>
     <p class="muted hide" id="batchTip" style="margin:8px 0 0">행을 클릭하면 우리 룸 ↔ 추천 후보를 모든 컬럼으로 비교합니다.</p>
     <div class="scroll hide" id="batchWrap" style="margin-top:8px"><table id="batchTable"></table></div>
@@ -127,6 +128,8 @@
       <div>
         <label class="w">자동확정 ≥ <input id="autoTh" type="number" min="0" max="100" style="width:70px"/></label>
         <label class="w" style="margin-top:8px">검토 ≥ <input id="reviewTh" type="number" min="0" max="100" style="width:70px"/></label>
+        <label class="w" style="margin-top:8px">재검색 쿨다운(일) <input id="cooldownDays" type="number" min="0" max="365" style="width:70px"/></label>
+        <p class="hint" style="margin:4px 0 0">결과 없음·매핑한 호텔코드는 이 기간 동안 자동 스캔에서 건너뜁니다. 0=항상 재검색.</p>
         <button style="margin-top:12px" onclick="saveSettings()">설정 저장</button>
         <span id="setMsg" class="muted"></span>
       </div>
@@ -179,6 +182,8 @@ async function refresh() {
 
   // settings
   $("autoTh").value = s.settings.autoThreshold; $("reviewTh").value = s.settings.reviewThreshold;
+  $("cooldownDays").value = s.settings.cooldownDays;
+  if ($("cacheInfo")) $("cacheInfo").textContent = `(쿨다운 기억 중: ${s.cacheCount||0}개 · ${s.settings.cooldownDays}일)`;
   $("aiState").innerHTML = s.aiConfigured ? '<span class="ok">설정됨 ('+s.aiProvider+')</span>' : '미설정';
   if (s.aiProvider) $("aiProvider").value = s.aiProvider;
   $("weights").innerHTML = WK.map(k=>`<label class="w">${WLABEL[k]} <input type="range" min="0" max="100" id="w_${k}" value="${s.settings.weights[k]}" oninput="this.nextElementSibling.textContent=this.value"/><span style="width:28px;text-align:right">${s.settings.weights[k]}</span></label>`).join("");
@@ -231,10 +236,12 @@ let BATCH = [];
 const bandCls = bd => bd==="AUTO"?"auto":bd==="REVIEW"?"review":"nomatch";
 function renderBatch(b) {
   if (!b) return;
-  const probs = (b.results||[]).filter(r=>!r.best).map(r=>`${r.code}: ${r.error||r.note||'?'}`);
+  // 코드별로 한 줄만 (중복 제거)
+  const seen=new Set(); const probs=[];
+  (b.results||[]).filter(r=>!r.best).forEach(r=>{ if(seen.has(r.code))return; seen.add(r.code); probs.push(`${r.code}: ${r.error||r.note||'후보 없음'}`); });
   $("batchProg").innerHTML = (b.error ? `<span class="err">${b.error}</span><br>` : '')
-    + `<span class="stat">진행 <b>${b.done}/${b.total}</b></span> ${b.running?`<span class="muted">처리 중: ${b.current||''}</span>`:'<span class="ok">완료</span>'} <span class="stat">추천 <b>${(b.results||[]).filter(r=>r.best).length}</b></span>`
-    + (probs.length?`<div class="muted" style="margin-top:6px">⚠ ${probs.slice(0,5).join(' / ')}</div>`:'');
+    + `<span class="stat">진행 <b>${b.done}/${b.total}</b></span> ${b.running?`<span class="muted">처리 중: ${b.current||''}</span>`:'<span class="ok">완료</span>'} <span class="stat">추천 <b>${(b.results||[]).filter(r=>r.best).length}</b></span>${b.skipped?` <span class="stat">건너뜀(쿨다운) <b>${b.skipped}</b></span>`:''}`
+    + (probs.length?`<div class="muted" style="margin-top:6px">⚠ ${probs.slice(0,8).join(' / ')}${probs.length>8?` 외 ${probs.length-8}`:''}</div>`:'');
   BATCH = (b.results||[]).filter(r=>r.best);
   if (BATCH.length) {
     $("batchTip").classList.remove("hide");
@@ -329,8 +336,14 @@ async function dump() {
 }
 async function saveSettings() {
   const weights = {}; WK.forEach(k=>weights[k]=Number($("w_"+k).value));
-  await api("/api/settings", { autoThreshold:Number($("autoTh").value), reviewThreshold:Number($("reviewTh").value), weights });
-  $("setMsg").innerHTML = '<span class="ok">저장됨</span>'; setTimeout(()=>$("setMsg").textContent="",1500);
+  await api("/api/settings", { autoThreshold:Number($("autoTh").value), reviewThreshold:Number($("reviewTh").value), cooldownDays:Number($("cooldownDays").value), weights });
+  $("setMsg").innerHTML = '<span class="ok">저장됨</span>'; setTimeout(()=>$("setMsg").textContent="",1500); refresh();
+}
+async function clearCache(){
+  if(!confirm("스캔 캐시를 모두 비웁니다 — 다음 스캔에서 모든 호텔코드를 다시 검색합니다. 진행할까요?")) return;
+  const r=await api("/api/cache/clear",{});
+  if(r.ok){ alert("캐시를 비웠습니다. 이제 전체 재검색됩니다."); refresh(); }
+  else alert(r.error||"실패");
 }
 function renderResults(results) {
   if (!results || !results.length) return;
