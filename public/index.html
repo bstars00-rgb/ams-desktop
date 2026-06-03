@@ -191,6 +191,17 @@
     <p class="hint" style="margin:6px 0 0">쿨다운 중인(최근에 결과 없던/매핑한) 코드는 자동으로 건너뜁니다. <span id="cacheInfo" class="muted"></span> <button class="ghost" style="padding:2px 8px" onclick="clearCache()">캐시 비우기(전체 재검색)</button></p>
     <p class="hint" style="margin:8px 0 0;border-top:1px dashed var(--line);padding-top:8px"><b>처리 정책:</b> <span class="pill t99">99%+</span> 맵핑 시작 · <span class="pill t95">95%+</span> AI검증 후 시작 · <span class="pill t90">90%+</span> 사람 검토 · <span class="pill t80">80%+</span> 보류(신중) · <span class="pill t65">65%+</span> 보류 · <span class="pill t0">&lt;65%</span> 수동. <b>⚠ 베드 충돌이면 점수와 무관하게 검토.</b> 최종 [Mapping] 클릭은 항상 사람.</p>
     <div id="batchProg" style="margin-top:10px"></div>
+    <div id="bulk99Bar" style="margin:8px 0"></div>
+    <!-- 99%+ 일괄 매핑 준비 워커 -->
+    <div id="bulkPanel" class="hide" style="margin:8px 0;border:1px solid #bfdbfe;border-radius:10px;padding:12px;background:#f8fbff">
+      <div style="font-weight:700;margin-bottom:6px">▶ 99%+ 일괄 매핑 준비 <span class="muted">(한 건씩 시트립에 띄움 · 각 건은 시트립에서 직접 [Mapping] 확정)</span></div>
+      <div id="bulkBody" class="muted"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" onclick="bulkNext()">다음 ▶ (시트립 [Mapping] 확정 후)</button>
+        <button class="ghost" onclick="bulkSkip()">건너뛰기</button>
+        <button class="ghost" onclick="bulkStop()">중단</button>
+      </div>
+    </div>
     <p class="muted hide" id="batchTip" style="margin:8px 0 0">행을 클릭하면 우리 룸 ↔ 추천 후보를 모든 컬럼으로 비교합니다.</p>
     <div class="scroll hide" id="batchWrap" style="margin-top:8px"><table id="batchTable"></table></div>
     <div id="compareWrap" class="hide" style="margin-top:12px"></div>
@@ -474,6 +485,8 @@ function renderBatch(b) {
     + (tierSummary?`<div style="margin-top:8px">${tierSummary}</div>`:'')
     + (probs.length?`<div class="muted" style="margin-top:6px">⚠ ${probs.slice(0,8).join(' / ')}${probs.length>8?` 외 ${probs.length-8}`:''}</div>`:'');
   BATCH = recs;
+  const n99 = BATCH.filter(eligible99).length;
+  $("bulk99Bar").innerHTML = n99 ? `<button class="primary" onclick="startBulk99()">▶ 99%+ 일괄 매핑 준비 (${n99}건)</button> <span class="muted">한 건씩 시트립에 띄움 · 각 건은 직접 [Mapping] 확정</span>` : '';
   if (BATCH.length) {
     $("batchTip").classList.remove("hide");
     $("batchWrap").classList.remove("hide");
@@ -553,15 +566,39 @@ async function aiResearch(i){
   if(!res.ok){ $("airOut"+i).innerHTML='<div class="card" style="margin-top:8px"><span class="err">'+(res.error||'실패')+'</span></div>'; return; }
   r.ai = res.result; renderAi(i, res.result);
 }
+async function doPrepare(r, c){
+  return await api("/api/map/prepare",{code:r.code, basicRoomId:r.basicRoomId, roomIndex:r.roomIndex, masterId:c.id, masterName:c.name});
+}
 async function prepareMap(i, cidx){
   const r=BATCH[i]; const c=(r.candidates||[])[cidx]; if(!c) return;
   if(!confirm(`시트립 창에서 이 후보를 "선택" 상태로 만들까요?\n\n호텔 ${r.code} · 우리 룸 "${r.room||''}"\n→ 후보: ${c.name||c.id} (${c.score}%, ${c.band})\n\n⚠ 최종 [Mapping] 확정 버튼은 시트립 창에서 직접 누르셔야 합니다.`)) return;
   const msg=$("aiMsg"+i)||$("batchMsg"); msg.innerHTML='<span class="muted">시트립에서 매핑 준비 중… ('+r.code+' 재조회 → 모달 → 후보 선택, 5~15초)</span>';
-  const res=await api("/api/map/prepare",{code:r.code, basicRoomId:r.basicRoomId, roomIndex:r.roomIndex, masterId:c.id, masterName:c.name});
+  const res=await doPrepare(r,c);
   msg.innerHTML = res.ok
     ? '<span class="ok">✅ 시트립 창에 후보가 <b>녹색</b>으로 선택됨 — 그 창에서 <b>[Mapping]</b> 버튼을 눌러 최종 확정하세요.</span>'
     : '<span class="err">'+(res.error||'실패')+'</span>';
 }
+// 99%+ 일괄 매핑 준비 (순차 워커, 각 건은 사람이 시트립에서 [Mapping] 확정)
+function eligible99(r){ const sc=Number(r.best.score)||0; if(sc<99) return false; if(r.best.bedVerified===false) return false; if(r.ai&&r.ai.same_room==='no') return false; return true; }
+let bulkQ=[], bulkPos=0;
+function startBulk99(){
+  bulkQ = BATCH.map((r,i)=>i).filter(i=>eligible99(BATCH[i]));
+  if(!bulkQ.length){ alert('99%+ (베드 OK · AI 불일치 아님) 대상이 없습니다.'); return; }
+  if(!confirm(`99%+ 대상 ${bulkQ.length}건을 한 건씩 시트립에 띄웁니다.\n각 건마다 시트립에서 [Mapping]을 직접 확정한 뒤 [다음 ▶]을 누르세요.\n\n시작할까요?`)) return;
+  bulkPos=0; $("bulkPanel").classList.remove("hide"); $("bulkPanel").scrollIntoView({behavior:"smooth",block:"center"}); bulkStep();
+}
+async function bulkStep(){
+  const body=$("bulkBody");
+  if(bulkPos>=bulkQ.length){ body.innerHTML='<span class="ok">✅ 일괄 준비 완료 ('+bulkQ.length+'건). 시트립에서 각 [Mapping] 확정을 마쳤는지 확인하세요.</span>'; return; }
+  const r=BATCH[bulkQ[bulkPos]]; const c=r.candidates[0];
+  body.innerHTML=`<b>${bulkPos+1}/${bulkQ.length}</b> · 호텔 ${r.code} · 룸 "${esc(r.room)}" → 후보 <b>${esc(c.name||c.id)}</b> (${c.score}%) <span class="muted">— 시트립에 띄우는 중…</span>`;
+  const res=await doPrepare(r,c);
+  body.innerHTML=`<b>${bulkPos+1}/${bulkQ.length}</b> · 호텔 ${r.code} · 룸 "${esc(r.room)}" → 후보 <b>${esc(c.name||c.id)}</b> (${c.score}%)<br>`
+    + (res.ok ? '<span class="ok">✅ 시트립 창에 후보 선택됨 — 그 창에서 <b>[Mapping]</b> 확정 후 아래 <b>[다음 ▶]</b></span>' : '<span class="err">'+(res.error||'실패')+' — [건너뛰기] 또는 다시 [다음]</span>');
+}
+function bulkNext(){ if(bulkPos<bulkQ.length) bulkPos++; bulkStep(); }
+function bulkSkip(){ if(bulkPos<bulkQ.length) bulkPos++; bulkStep(); }
+function bulkStop(){ $("bulkPanel").classList.add("hide"); }
 async function copyAi(i){
   const r=BATCH[i]; const m=r.merchant||{}, b=r.best||{};
   const p=`다음 두 호텔 객실이 동일한 룸타입인지 확인해줘. 호텔 공식 웹사이트와 OTA(Agoda/Booking/Trip.com)를 참고해줘.\n\n호텔: ${r.hotelName||r.code}\n우리 룸: ${m.name} (베드 ${m.bed||'?'}, 점유 ${m.occ||'?'}, 평수 ${m.area||'?'}㎡, 창문 ${m.view||'?'}, 흡연 ${m.smoke||'?'})\n후보(시트립): ${b.name} (베드 ${b.bed||'?'}, 점유 ${b.occ||'?'}, 평수 ${b.area||'?'}㎡, 창문 ${b.view||'?'}, 흡연 ${b.smoke||'?'})\n\n다음을 알려줘: 1) 동일 룸 여부 2) 신뢰도(높음/보통/낮음) 3) 핵심 차이 4) 매핑 권장 여부.`;
