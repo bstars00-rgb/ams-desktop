@@ -464,7 +464,7 @@ function showCompare(i){
   const linkHtml = links.map(l=>`<a href="${l[1]}" target="_blank" rel="noopener" class="rlink">🔎 ${esc(l[0])}</a>`).join(" ");
   w.innerHTML = `<div class="card" style="border-color:#c7d2fe"><div style="font-size:13px;font-weight:700;margin-bottom:8px">비교: ${esc(r.room)} (${esc(hotel)})</div>
     ${ourTbl}${candTbl}
-    <div style="margin-top:10px"><div class="muted" style="margin-bottom:6px">외부 소스 리서치:</div>${linkHtml} <button class="ghost" style="padding:4px 9px" onclick='copyAi(${i})'>AI 비교 프롬프트 복사</button> <button style="padding:4px 9px" onclick='aiResearch(${i})'>🤖 AI 외부 검증</button> <span id="aiMsg${i}" class="muted"></span></div>
+    <div style="margin-top:10px"><div class="muted" style="margin-bottom:6px">🔎 직접 확인용 — 이 호텔/룸을 OTA·구글에서 <b>눈으로</b> 검증 (자동 검증은 오른쪽 🤖 버튼):</div>${linkHtml} <button class="ghost" style="padding:4px 9px" onclick='copyAi(${i})'>AI 비교 프롬프트 복사</button> <button style="padding:4px 9px" onclick='aiResearch(${i})'>🤖 AI 외부 검증</button> <span id="aiMsg${i}" class="muted"></span></div>
     <div id="airOut${i}"></div>
     <p class="muted" style="margin-top:8px">★ = AMS 1순위. 위 두 표는 시트립 모달의 <b>모든 컬럼</b>을 그대로 가져온 것입니다.</p></div>`;
   w.scrollIntoView({behavior:"smooth",block:"nearest"});

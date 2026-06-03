@@ -44,7 +44,8 @@ async function runBatch(limit, offset = 0) {
   try {
     if (fs.existsSync("queue.csv")) {
       const lines = fs.readFileSync("queue.csv", "utf8").replace(/^﻿/, "").split(/\r?\n/);
-      const hdr = (lines[0] || "").split('","').map((x) => x.replace(/^"|"$/g, ""));
+      // Header row is plain CSV (no quotes); data rows are quoted.
+      const hdr = (lines[0] || "").split(",").map((x) => x.replace(/^"|"$/g, "").trim());
       const ci = hdr.indexOf("Hotel Code"), ni = hdr.indexOf("Hotel Name");
       for (const ln of lines.slice(1)) { const c = ln.split('","').map((x) => x.replace(/^"|"$/g, "")); if (c[ci]) hotelNames[c[ci]] = c[ni]; }
     }
