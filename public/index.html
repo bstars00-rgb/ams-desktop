@@ -199,10 +199,17 @@ async function refresh() {
   renderBatch(s.batch);
   if (s.batch && s.batch.running) setTimeout(refresh, 2000); // poll while scanning
 
-  // clients
+  // clients (편집 가능한 행)
   $("clientList").innerHTML = s.clients.length
-    ? s.clients.map(c=>`• <b>${c.name}</b> <span class="muted">${c.url}</span>`).join("<br>")
-    : "(등록된 고객 없음 — 아래에서 추가)";
+    ? s.clients.map((c,i)=>`<div class="row" style="margin:4px 0;align-items:center">
+        <input id="ce_name_${i}" value="${esc(c.name)}" style="width:120px" title="이름">
+        <input id="ce_url_${i}" value="${esc(c.url)}" size="30" title="로그인 URL">
+        <input id="ce_id_${i}" value="${esc(c.id||'')}" placeholder="ID / 이메일" style="width:150px">
+        <input id="ce_pw_${i}" type="password" placeholder="비번 변경시에만 입력" style="width:150px">
+        <button onclick="updateClient(${i})">저장</button>
+        <button class="ghost" onclick="deleteClient(${i})">삭제</button>
+      </div>`).join("")
+    : '<span class="muted">(등록된 고객 없음 — 아래에서 추가)</span>';
   $("runClient").innerHTML = s.clients.map(c=>`<option>${c.name}</option>`).join("");
 
   // channels
@@ -248,6 +255,17 @@ async function addClient() {
   const r = await api("/api/client", { name:$("cName").value, url:$("cUrl").value, id:$("cId").value, pw:$("cPw").value });
   if (r.ok){ $("cName").value=$("cUrl").value=$("cId").value=$("cPw").value=""; refresh(); }
   else alert(r.error||"실패");
+}
+async function updateClient(i){
+  const c = ST.clients[i]; if(!c) return;
+  const r = await api("/api/client/update", { origName:c.name, name:$("ce_name_"+i).value, url:$("ce_url_"+i).value, id:$("ce_id_"+i).value, pw:$("ce_pw_"+i).value });
+  if (r.ok){ alert("저장됨"); refresh(); } else alert(r.error||"실패");
+}
+async function deleteClient(i){
+  const c = ST.clients[i]; if(!c) return;
+  if(!confirm(`고객 '${c.name}' 을(를) 삭제할까요? (로그인 정보가 금고에서 지워집니다)`)) return;
+  const r = await api("/api/client/delete", { name:c.name });
+  if (r.ok) refresh(); else alert(r.error||"실패");
 }
 async function buildQueue() {
   $("queueMsg").textContent = "추출 중…";

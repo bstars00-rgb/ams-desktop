@@ -158,7 +158,7 @@ const server = http.createServer(async (req, res) => {
         vaultExists: vaultExists(),
         unlocked: !!state.vault,
         operator: state.operator,
-        clients: state.vault ? state.vault.clients.map((c) => ({ name: c.name, url: c.url })) : [],
+        clients: state.vault ? state.vault.clients.map((c) => ({ name: c.name, url: c.url, id: c.id || "" })) : [], // id shown for editing; pw never sent
         mappingFile: file ? path.basename(file) : null,
         channels: file ? listChannels(file) : [],
         queue: state.queue,
@@ -251,6 +251,31 @@ const server = http.createServer(async (req, res) => {
       if (state.vault.clients.some((c) => c.name.toLowerCase() === name.toLowerCase())) return json(res, 400, { error: "exists" });
       state.vault.clients.push({ name, url: u, id: id || "", pw: pw || "" });
       saveVault(state.master, state.vault);
+      return json(res, 200, { ok: true });
+    }
+    if (req.method === "POST" && url.pathname === "/api/client/update") {
+      if (!state.vault) return json(res, 401, { error: "locked" });
+      const { origName, name, url: u, id, pw } = await body(req);
+      const c = state.vault.clients.find((x) => x.name === origName);
+      if (!c) return json(res, 404, { error: "고객을 찾을 수 없습니다." });
+      if (name && name !== origName && state.vault.clients.some((x) => x.name.toLowerCase() === name.toLowerCase())) return json(res, 400, { error: "같은 이름이 이미 있습니다." });
+      if (name) c.name = name;
+      if (u !== undefined) c.url = u;
+      if (id !== undefined) c.id = id;
+      if (pw) c.pw = pw; // change password only when a new one is provided
+      saveVault(state.master, state.vault);
+      if (state.activeClient?.name === origName) state.activeClient.name = c.name;
+      audit({ operator: state.operator, action: "CLIENT_UPDATE", client: c.name });
+      return json(res, 200, { ok: true });
+    }
+    if (req.method === "POST" && url.pathname === "/api/client/delete") {
+      if (!state.vault) return json(res, 401, { error: "locked" });
+      const { name } = await body(req);
+      const before = state.vault.clients.length;
+      state.vault.clients = state.vault.clients.filter((x) => x.name !== name);
+      if (state.vault.clients.length === before) return json(res, 404, { error: "고객을 찾을 수 없습니다." });
+      saveVault(state.master, state.vault);
+      audit({ operator: state.operator, action: "CLIENT_DELETE", client: name });
       return json(res, 200, { ok: true });
     }
     if (req.method === "POST" && url.pathname === "/api/queue") {
