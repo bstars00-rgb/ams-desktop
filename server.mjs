@@ -261,6 +261,16 @@ const server = http.createServer(async (req, res) => {
       saveVault(state.master, state.vault);
       return json(res, 200, { ok: true });
     }
+    if (req.method === "POST" && url.pathname === "/api/client/get") {
+      // Reveal full credentials for ONE client (vault must be unlocked). Local-only,
+      // on-demand — not included in the polled status. Lets the operator copy the
+      // id/pw when manually logging in to the opened URL.
+      if (!state.vault) return json(res, 401, { error: "locked" });
+      const { name } = await body(req);
+      const c = state.vault.clients.find((x) => x.name === name);
+      if (!c) return json(res, 404, { error: "고객을 찾을 수 없습니다." });
+      return json(res, 200, { ok: true, name: c.name, url: c.url, id: c.id || "", pw: c.pw || "" });
+    }
     if (req.method === "POST" && url.pathname === "/api/client/update") {
       if (!state.vault) return json(res, 401, { error: "locked" });
       const { master, origName, name, url: u, id, pw } = await body(req);
