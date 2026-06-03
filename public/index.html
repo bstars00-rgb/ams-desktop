@@ -146,14 +146,13 @@
 
   <!-- ===== 매핑 작업 뷰 ===== -->
   <div id="viewWork">
-  <div class="dash-row">
   <!-- ① 작업 큐 -->
   <div class="card" id="queueCard">
     <h2><span class="step">1</span> 작업 큐 (매핑 리스트에서 추출)</h2>
     <p class="hint" id="queueHint"></p>
     <div class="row">
       <select id="channel"></select>
-      <button onclick="buildQueue()">작업 큐 만들기</button>
+      <button class="primary" id="queueBtn" onclick="buildQueue()">작업 큐 만들기</button>
       <span id="queueMsg" class="muted"></span>
     </div>
     <div id="queueStats" style="margin-top:12px"></div>
@@ -176,8 +175,6 @@
     </div>
     <div class="scroll hide" id="resultWrap" style="margin-top:12px"><table id="resultTable"></table></div>
   </div>
-
-  </div><!-- /dash-row -->
 
   <!-- ③ 자동 스캔 (배치) -->
   <div class="card" id="batchCard">
@@ -384,15 +381,20 @@ async function deleteDetail(){
   if(r.ok) closeDetail(); else $("cdMsg").innerHTML='<span class="err">'+(r.error||'실패')+'</span>';
 }
 async function buildQueue() {
-  $("queueMsg").textContent = "추출 중…";
-  const r = await api("/api/queue", { channel:$("channel").value });
-  $("queueMsg").textContent = "";
-  if (r.error){ alert(r.error); return; }
-  $("queueStats").innerHTML = `<span class="stat">채널 <b>${r.channel}</b></span> <span class="stat">룸 <b>${r.rooms}</b></span> <span class="stat">호텔 <b>${r.hotels}</b></span> <span class="muted">→ queue.csv · codes.txt 생성됨</span>`;
-  const cols = ["Hotel Code","Hotel Name","Room Name","Bed Type","Room Size"];
-  $("queueWrap").classList.remove("hide");
-  $("queueTable").innerHTML = "<tr>"+cols.map(c=>`<th>${c}</th>`).join("")+"</tr>"+
-    r.preview.map(row=>"<tr>"+cols.map(c=>`<td>${row[c]||""}</td>`).join("")+"</tr>").join("");
+  const btn=$("queueBtn");
+  btn.disabled=true;
+  $("queueMsg").innerHTML = '<span class="muted">⏳ 추출 중… (엑셀 파싱, 처음엔 몇 초 걸릴 수 있어요)</span>';
+  try {
+    const r = await api("/api/queue", { channel:$("channel").value });
+    if (r.error){ $("queueMsg").innerHTML='<span class="err">'+r.error+'</span>'; return; }
+    $("queueMsg").innerHTML='<span class="ok">완료</span>';
+    $("queueStats").innerHTML = `<span class="stat">채널 <b>${r.channel}</b></span> <span class="stat">룸 <b>${r.rooms}</b></span> <span class="stat">호텔 <b>${r.hotels}</b></span> <span class="muted">→ queue.csv · codes.txt 생성됨 · 미리보기 30개</span>`;
+    const cols = ["Hotel Code","Hotel Name","Room Name","Bed Type","Room Size"];
+    $("queueWrap").classList.remove("hide");
+    $("queueTable").innerHTML = "<tr>"+cols.map(c=>`<th>${c}</th>`).join("")+"</tr>"+
+      r.preview.map(row=>"<tr>"+cols.map(c=>`<td>${esc(row[c]||"")}</td>`).join("")+"</tr>").join("");
+  } catch(e){ $("queueMsg").innerHTML='<span class="err">실패: '+e+'</span>'; }
+  finally { btn.disabled=false; }
 }
 async function openBrowser() {
   $("runMsg").textContent = "브라우저 여는 중…";
