@@ -76,7 +76,7 @@ async function runBatch(limit, offset = 0) {
           if (tables.master) {
             const { merchant, candidates, cols } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
             const best = candidates[0];
-            state.batch.results.push({ code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5), cols });
+            state.batch.results.push({ code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, basicRoomId: rooms[i].basicRoomId, roomIndex: i, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5), cols });
             audit({ operator: state.operator, client: state.activeClient?.name, action: "BATCH_RECOMMEND", code, room: rooms[i].nameEN, recommendedName: best?.name, score: best?.score, band: best?.band });
           }
         } catch (e) { console.log(`[batch]   room ${i + 1} ERROR: ${e?.message || e}`); }
@@ -171,6 +171,19 @@ const server = http.createServer(async (req, res) => {
         const r = await aiResearchRoom(await researchContext(), state.vault.ai, { hotel, room, ourAttrs, candidateAttrs });
         audit({ operator: state.operator, client: state.activeClient?.name, action: "AI_RESEARCH", hotel, room, verdict: r.same_room, confidence: r.confidence });
         return json(res, 200, { ok: true, result: r });
+      } catch (e) {
+        return json(res, 502, { error: String(e?.message || e) });
+      }
+    }
+    if (req.method === "POST" && url.pathname === "/api/map/prepare") {
+      if (!state.page) return json(res, 400, { error: "먼저 ③ 브라우저 열기" });
+      if (state.batch?.running) return json(res, 400, { error: "자동 스캔 중에는 매핑 준비를 할 수 없습니다 — 스캔이 끝난 뒤 시도하세요." });
+      const { code, basicRoomId, roomIndex, masterId, masterName } = await body(req);
+      if (!code || masterId == null) return json(res, 400, { error: "code/masterId 필요" });
+      try {
+        const r = await ctrip.prepareMapping(state.page, { code, basicRoomId, roomIndex, masterId });
+        audit({ operator: state.operator, client: state.activeClient?.name, action: "MAP_PREPARE", code, basicRoomId, masterId, masterName });
+        return json(res, 200, { ok: true, ...r });
       } catch (e) {
         return json(res, 502, { error: String(e?.message || e) });
       }
