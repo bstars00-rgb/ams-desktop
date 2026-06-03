@@ -220,12 +220,29 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "POST" && url.pathname === "/api/unlock") {
       const { master, operator } = await body(req);
+      if (!master || String(master).length < 4) return json(res, 400, { ok: false, error: "마스터 비밀번호는 4자 이상이어야 합니다." });
+      const existed = vaultExists();
       try {
-        const data = vaultExists() ? loadVault(master) : emptyVault();
-        if (!vaultExists()) saveVault(master, data);
+        const data = existed ? loadVault(master) : emptyVault();
+        if (!existed) saveVault(master, data);
         state.master = master; state.vault = data; state.operator = operator || "";
-        return json(res, 200, { ok: true, clients: data.clients.map((c) => ({ name: c.name, url: c.url })) });
-      } catch { return json(res, 401, { ok: false, error: "wrong master password" }); }
+        audit({ operator: state.operator, action: existed ? "UNLOCK" : "VAULT_CREATE" });
+        return json(res, 200, { ok: true, created: !existed, clients: data.clients.map((c) => ({ name: c.name, url: c.url })) });
+      } catch { return json(res, 401, { ok: false, error: "마스터 비밀번호가 틀렸습니다." }); }
+    }
+    if (req.method === "POST" && url.pathname === "/api/master/change") {
+      if (!state.vault) return json(res, 401, { error: "먼저 잠금 해제하세요." });
+      const { oldMaster, newMaster } = await body(req);
+      if (oldMaster !== state.master) return json(res, 401, { error: "현재 비밀번호가 틀렸습니다." });
+      if (!newMaster || String(newMaster).length < 4) return json(res, 400, { error: "새 비밀번호는 4자 이상이어야 합니다." });
+      saveVault(newMaster, state.vault); state.master = newMaster;
+      audit({ operator: state.operator, action: "MASTER_CHANGE" });
+      return json(res, 200, { ok: true });
+    }
+    if (req.method === "POST" && url.pathname === "/api/lock") {
+      audit({ operator: state.operator, action: "LOCK" });
+      state.vault = null; state.master = null; state.operator = "";
+      return json(res, 200, { ok: true });
     }
     if (req.method === "POST" && url.pathname === "/api/client") {
       if (!state.vault) return json(res, 401, { error: "locked" });
