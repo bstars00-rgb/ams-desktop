@@ -255,7 +255,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "POST" && url.pathname === "/api/client/update") {
       if (!state.vault) return json(res, 401, { error: "locked" });
-      const { origName, name, url: u, id, pw } = await body(req);
+      const { master, origName, name, url: u, id, pw } = await body(req);
+      if (master !== state.master) return json(res, 401, { error: "콘솔 비밀번호가 틀렸습니다." });
       const c = state.vault.clients.find((x) => x.name === origName);
       if (!c) return json(res, 404, { error: "고객을 찾을 수 없습니다." });
       if (name && name !== origName && state.vault.clients.some((x) => x.name.toLowerCase() === name.toLowerCase())) return json(res, 400, { error: "같은 이름이 이미 있습니다." });
@@ -270,7 +271,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "POST" && url.pathname === "/api/client/delete") {
       if (!state.vault) return json(res, 401, { error: "locked" });
-      const { name } = await body(req);
+      const { master, name } = await body(req);
+      if (master !== state.master) return json(res, 401, { error: "콘솔 비밀번호가 틀렸습니다." });
       const before = state.vault.clients.length;
       state.vault.clients = state.vault.clients.filter((x) => x.name !== name);
       if (state.vault.clients.length === before) return json(res, 404, { error: "고객을 찾을 수 없습니다." });

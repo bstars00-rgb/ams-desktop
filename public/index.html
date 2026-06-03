@@ -12,7 +12,11 @@
   header .logo { width:34px;height:34px;border-radius:8px;background:var(--b);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px; }
   header h1 { font-size:16px; margin:0; }
   header .sub { font-size:12px; color:#64748b; }
-  .wrap { max-width:1050px; margin:18px auto; padding:0 18px; display:grid; gap:16px; }
+  .wrap { max-width:1280px; margin:18px auto; padding:0 18px; display:grid; gap:16px; }
+  .layout { display:flex; gap:18px; align-items:flex-start; }
+  .sidebar { width:320px; flex:0 0 320px; position:sticky; top:16px; max-height:calc(100vh - 32px); overflow:auto; }
+  .main { flex:1; min-width:0; display:grid; gap:16px; }
+  @media (max-width: 920px){ .layout{ flex-direction:column; } .sidebar{ width:auto; flex:none; position:static; max-height:none; } }
   .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px; }
   .card h2 { margin:0 0 4px; font-size:14px; }
   .card p.hint { margin:0 0 12px; font-size:12px; color:#64748b; }
@@ -68,22 +72,30 @@
   </div>
 
 
-  <!-- 1. 고객(금고) -->
-  <div class="card hide" id="clientCard">
-    <h2>① 고객 (금고)</h2>
-    <p class="hint">매핑 시스템 로그인 정보를 암호화해 저장합니다. (비번은 이 PC에만)</p>
-    <div id="clientList" class="muted"></div>
-    <div class="row" style="margin-top:12px">
-      <input id="cName" placeholder="이름 (예: Ctrip)" />
-      <input id="cUrl" placeholder="로그인 URL" size="34" />
-      <input id="cId" placeholder="ID / 이메일" />
-      <input id="cPw" type="password" placeholder="비밀번호" />
-      <button onclick="addClient()">추가</button>
+  <div class="layout hide" id="appLayout">
+  <!-- 왼쪽 사이드바: 고객 금고 -->
+  <aside class="sidebar">
+    <div class="card" id="clientCard" style="margin:0">
+      <h2>🔐 고객 금고</h2>
+      <p class="hint">매핑 시스템 로그인(암호화 저장). <b>수정·삭제하려면 콘솔 비밀번호가 필요합니다.</b></p>
+      <input id="cAuth" type="password" placeholder="콘솔 비밀번호 (수정·삭제 인증)" style="width:100%;margin-bottom:10px" />
+      <div id="clientList"></div>
+      <div style="margin-top:8px;border-top:1px solid var(--line);padding-top:10px">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">+ 새 고객 추가</div>
+        <input id="cName" placeholder="이름 (예: Ctrip)" style="width:100%;margin-bottom:6px" />
+        <input id="cUrl" placeholder="로그인 URL" style="width:100%;margin-bottom:6px" />
+        <input id="cId" placeholder="ID / 이메일" style="width:100%;margin-bottom:6px" />
+        <input id="cPw" type="password" placeholder="비밀번호" style="width:100%;margin-bottom:6px" />
+        <button class="primary" onclick="addClient()" style="width:100%">추가</button>
+      </div>
     </div>
-  </div>
+  </aside>
+
+  <!-- 오른쪽 메인 -->
+  <main class="main">
 
   <!-- 2. 작업 큐 -->
-  <div class="card hide" id="queueCard">
+  <div class="card" id="queueCard">
     <h2>② 작업 큐 (매핑 리스트에서 추출)</h2>
     <p class="hint" id="queueHint"></p>
     <div class="row">
@@ -96,7 +108,7 @@
   </div>
 
   <!-- 3. 시트립 브라우저 열기 -->
-  <div class="card hide" id="runCard">
+  <div class="card" id="runCard">
     <h2>③ 시트립 브라우저 열기 & 시작</h2>
     <p class="hint">아래 <b>▶ 시트립 브라우저 열기</b>를 누르면 자동화용 창이 뜹니다. 그 창에서 <b>로그인 → Account 그룹선택(1210/1311) → Mapping center → Room Mapping</b> 화면을 띄운 뒤, 아래 <b>③-2 자동 스캔</b>으로 진행하세요.</p>
     <div class="row">
@@ -113,7 +125,7 @@
   </div>
 
   <!-- 3.5 자동 스캔 (배치) -->
-  <div class="card hide" id="batchCard">
+  <div class="card" id="batchCard">
     <h2>③-2 자동 스캔 (codes.txt → 룸별 추천 자동 수집)</h2>
     <p class="hint"><b>스캔 전 준비(중요):</b> ③ 브라우저 열기 → 시트립 로그인 → <b>Account에서 그룹 선택(1210/1311)</b> → <b>Mapping center → Room Mapping</b> 화면을 띄워두세요. 그 화면에서 호텔코드만 바꿔가며 자동 조회→룸 모달→AMS 추천을 모읍니다. <b>최종 [Mapping] 클릭은 사람.</b></p>
     <div class="row">
@@ -130,7 +142,7 @@
   </div>
 
   <!-- 4. 설정 -->
-  <div class="card hide" id="setCard">
+  <div class="card" id="setCard">
     <h2>④ 알고리즘 설정</h2>
     <p class="hint">점수 가중치·임계값. 바꾸면 다음 추천부터 반영됩니다.</p>
     <div class="grid2">
@@ -166,6 +178,8 @@
       </div>
     </div>
   </div>
+  </main>
+  </div><!-- /layout -->
 </div>
 
 <script>
@@ -193,19 +207,19 @@ async function refresh() {
     $("master2").classList.toggle("hide", !first);
     $("lockBtn").textContent = first ? "만들고 시작" : "잠금 해제";
   }
-  ["clientCard","queueCard","runCard","batchCard","setCard"].forEach(id=>$(id).classList.toggle("hide", !s.unlocked));
+  $("appLayout").classList.toggle("hide", !s.unlocked);
   if (!s.unlocked) return;
 
   renderBatch(s.batch);
   if (s.batch && s.batch.running) setTimeout(refresh, 2000); // poll while scanning
 
-  // clients (편집 가능한 행)
+  // clients (사이드바: 세로 편집 카드)
   $("clientList").innerHTML = s.clients.length
-    ? s.clients.map((c,i)=>`<div class="row" style="margin:4px 0;align-items:center">
-        <input id="ce_name_${i}" value="${esc(c.name)}" style="width:120px" title="이름">
-        <input id="ce_url_${i}" value="${esc(c.url)}" size="30" title="로그인 URL">
-        <input id="ce_id_${i}" value="${esc(c.id||'')}" placeholder="ID / 이메일" style="width:150px">
-        <input id="ce_pw_${i}" type="password" placeholder="비번 변경시에만 입력" style="width:150px">
+    ? s.clients.map((c,i)=>`<div style="border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px">
+        <input id="ce_name_${i}" value="${esc(c.name)}" style="width:100%;margin-bottom:5px;font-weight:600" title="이름">
+        <input id="ce_url_${i}" value="${esc(c.url)}" style="width:100%;margin-bottom:5px" title="로그인 URL">
+        <input id="ce_id_${i}" value="${esc(c.id||'')}" placeholder="ID / 이메일" style="width:100%;margin-bottom:5px">
+        <input id="ce_pw_${i}" type="password" placeholder="비번 변경시에만 입력" style="width:100%;margin-bottom:7px">
         <button onclick="updateClient(${i})">저장</button>
         <button class="ghost" onclick="deleteClient(${i})">삭제</button>
       </div>`).join("")
@@ -256,15 +270,22 @@ async function addClient() {
   if (r.ok){ $("cName").value=$("cUrl").value=$("cId").value=$("cPw").value=""; refresh(); }
   else alert(r.error||"실패");
 }
+function consolePw(){
+  const p = $("cAuth").value;
+  if(!p){ alert("먼저 사이드바 상단에 '콘솔 비밀번호'를 입력하세요 (수정·삭제 인증)."); return null; }
+  return p;
+}
 async function updateClient(i){
   const c = ST.clients[i]; if(!c) return;
-  const r = await api("/api/client/update", { origName:c.name, name:$("ce_name_"+i).value, url:$("ce_url_"+i).value, id:$("ce_id_"+i).value, pw:$("ce_pw_"+i).value });
+  const master = consolePw(); if(master===null) return;
+  const r = await api("/api/client/update", { master, origName:c.name, name:$("ce_name_"+i).value, url:$("ce_url_"+i).value, id:$("ce_id_"+i).value, pw:$("ce_pw_"+i).value });
   if (r.ok){ alert("저장됨"); refresh(); } else alert(r.error||"실패");
 }
 async function deleteClient(i){
   const c = ST.clients[i]; if(!c) return;
+  const master = consolePw(); if(master===null) return;
   if(!confirm(`고객 '${c.name}' 을(를) 삭제할까요? (로그인 정보가 금고에서 지워집니다)`)) return;
-  const r = await api("/api/client/delete", { name:c.name });
+  const r = await api("/api/client/delete", { master, name:c.name });
   if (r.ok) refresh(); else alert(r.error||"실패");
 }
 async function buildQueue() {
