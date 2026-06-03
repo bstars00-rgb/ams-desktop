@@ -244,6 +244,8 @@
         <label class="w" style="margin-top:8px"><span data-i18n="s_review">검토 ≥</span> <input id="reviewTh" type="number" min="0" max="100" style="width:70px"/></label>
         <label class="w" style="margin-top:8px"><span data-i18n="s_cooldownd">재검색 쿨다운(일)</span> <input id="cooldownDays" type="number" min="0" max="365" style="width:70px"/></label>
         <label class="w" style="margin-top:8px" title="조직의 분당 API 한도에 맞추세요. 무료/낮은 티어는 보통 5/분 → 4 권장"><span data-i18n="s_rpm">AI 분당 요청(RPM)</span> <input id="aiRpm" type="number" min="1" max="200" style="width:70px"/></label>
+        <label class="w" style="margin-top:8px" title="이 점수 이상인 룸만 AI로 검증 (낮은 점수는 어차피 수동/보류라 비용 낭비)"><span data-i18n="s_aimin">AI 검증 최소 점수</span> <input id="aiMinScore" type="number" min="0" max="100" style="width:70px"/></label>
+        <label class="w" style="margin-top:8px" title="여러 룸을 모아 한 번의 호출로 검증 → 요청 수·비용 절감"><span data-i18n="s_aibatch">AI 묶음 크기(건/호출)</span> <input id="aiBatchSize" type="number" min="1" max="20" style="width:70px"/></label>
         <button style="margin-top:12px" onclick="saveSettings()" data-i18n="s_save">설정 저장</button>
         <span id="setMsg" class="muted"></span>
       </div>
@@ -305,7 +307,7 @@ const I18N = {
   b_cooldown:"쿨다운 중인(최근에 결과 없던/매핑한) 코드는 자동으로 건너뜁니다.", b_clearcache:"캐시 비우기(전체 재검색)",
   pol_label:"처리 정책:", pol_99:"맵핑 시작", pol_95:"AI검증 후 시작", pol_90:"사람 검토", pol_80:"보류(신중)", pol_65:"보류", pol_0:"수동", pol_bed:"⚠ 베드 충돌이면 점수와 무관하게 검토. 최종 [Mapping] 클릭은 항상 사람.",
   s_h2:"설정 (알고리즘 · 비밀번호 · AI)", s_hint:"점수 가중치·임계값. 바꾸면 다음 추천부터 반영됩니다.",
-  s_auto:"자동확정 ≥", s_review:"검토 ≥", s_cooldownd:"재검색 쿨다운(일)", s_rpm:"AI 분당 요청(RPM)", s_save:"설정 저장",
+  s_auto:"자동확정 ≥", s_review:"검토 ≥", s_cooldownd:"재검색 쿨다운(일)", s_rpm:"AI 분당 요청(RPM)", s_aimin:"AI 검증 최소 점수", s_aibatch:"AI 묶음 크기(건/호출)", s_save:"설정 저장",
   pw_h:"🔑 마스터 비밀번호 변경", pw_old:"현재 비밀번호", pw_new:"새 비밀번호 (4자 이상)", pw_btn:"비밀번호 변경",
   ai_h:"AI 외부 추출", ai_model:"모델(선택)", ai_key:"API 키 (저장 후 표시 안 됨)", ai_save:"AI 키 저장",
   page_work:"매핑 대시보드", page_settings:"설정",
@@ -329,7 +331,7 @@ const I18N = {
   b_cooldown:"Codes recently empty/mapped are skipped (cooldown).", b_clearcache:"Clear cache (rescan all)",
   pol_label:"Policy:", pol_99:"Start mapping", pol_95:"Start after AI check", pol_90:"Human review", pol_80:"Hold (caution)", pol_65:"Hold", pol_0:"Manual", pol_bed:"⚠ Bed conflict → review regardless of score. Final [Mapping] click is always human.",
   s_h2:"Settings (algorithm · password · AI)", s_hint:"Score weights & thresholds. Applies to next recommendations.",
-  s_auto:"Auto-confirm ≥", s_review:"Review ≥", s_cooldownd:"Rescan cooldown (days)", s_rpm:"AI requests/min (RPM)", s_save:"Save settings",
+  s_auto:"Auto-confirm ≥", s_review:"Review ≥", s_cooldownd:"Rescan cooldown (days)", s_rpm:"AI requests/min (RPM)", s_aimin:"AI min score to verify", s_aibatch:"AI batch size (per call)", s_save:"Save settings",
   pw_h:"🔑 Change master password", pw_old:"Current password", pw_new:"New password (4+ chars)", pw_btn:"Change password",
   ai_h:"AI external extraction", ai_model:"Model (optional)", ai_key:"API key (hidden after save)", ai_save:"Save AI key",
   page_work:"Mapping dashboard", page_settings:"Settings",
@@ -397,6 +399,8 @@ async function refresh() {
   $("autoTh").value = s.settings.autoThreshold; $("reviewTh").value = s.settings.reviewThreshold;
   $("cooldownDays").value = s.settings.cooldownDays;
   $("aiRpm").value = s.settings.aiRpm;
+  $("aiMinScore").value = s.settings.aiMinScore;
+  $("aiBatchSize").value = s.settings.aiBatchSize;
   if ($("cacheInfo")) $("cacheInfo").textContent = `(쿨다운 기억 중: ${s.cacheCount||0}개 · ${s.settings.cooldownDays}일)`;
   $("aiState").innerHTML = s.aiConfigured ? '<span class="ok">설정됨 ('+s.aiProvider+')</span>' : '미설정';
   // AI 사용량·추정 비용 카드
@@ -718,7 +722,7 @@ async function dump() {
 }
 async function saveSettings() {
   const weights = {}; WK.forEach(k=>weights[k]=Number($("w_"+k).value));
-  await api("/api/settings", { autoThreshold:Number($("autoTh").value), reviewThreshold:Number($("reviewTh").value), cooldownDays:Number($("cooldownDays").value), aiRpm:Number($("aiRpm").value), weights });
+  await api("/api/settings", { autoThreshold:Number($("autoTh").value), reviewThreshold:Number($("reviewTh").value), cooldownDays:Number($("cooldownDays").value), aiRpm:Number($("aiRpm").value), aiMinScore:Number($("aiMinScore").value), aiBatchSize:Number($("aiBatchSize").value), weights });
   $("setMsg").innerHTML = '<span class="ok">저장됨</span>'; setTimeout(()=>$("setMsg").textContent="",1500); refresh();
 }
 async function resetUsage(){

@@ -13,7 +13,7 @@ import { loadCache, saveCache, clearCache, markScanned, coolingDown } from "./li
 import { loadUsage, resetUsage } from "./lib/usage.mjs";
 import { readPage, analyze, highlight, dumpPage } from "./lib/recommend.mjs";
 import * as ctrip from "./lib/ctrip.mjs";
-import { aiResearchRoom, setAiRpm } from "./lib/ai.mjs";
+import { aiResearchRoom, aiVerifyBatch, setAiRpm } from "./lib/ai.mjs";
 import { audit } from "./lib/audit.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -53,24 +53,30 @@ async function runBatch(limit, offset = 0, autoAI = false) {
   } catch { /* ignore */ }
   setAiRpm(s.aiRpm); // throttle AI to the org's per-minute limit
   const aiOn = !!(autoAI && state.vault?.ai?.key);
+  const aiMinScore = Number(s.aiMinScore) || 80;
+  const aiBatchSize = Math.max(1, Number(s.aiBatchSize) || 8);
   state.batch = { running: true, total: limit, done: 0, skipped: 0, current: "", results: [], error: null, aiOn, aiPending: 0 };
-  // AI 외부검증을 스캔과 동시에(병렬) 미리 실행 — 룸을 클릭하면 결과가 이미 준비됨.
-  const aiQueue = []; let aiActive = 0; const AI_CONCURRENCY = 3;
-  function pumpAI() {
-    while (aiActive < AI_CONCURRENCY && aiQueue.length) {
-      const result = aiQueue.shift(); aiActive += 1;
+  // AI 검증: 점수 ≥ aiMinScore 인 룸만, aiBatchSize 개씩 모아 ONE 호출로 검증
+  // (요청 수↓ → 429 회피, 비용↓). 스캔과 병렬로 진행.
+  const aiBuf = []; let aiInFlightRooms = 0;
+  const setPending = () => { state.batch.aiPending = aiBuf.length + aiInFlightRooms; };
+  function flushAI(force) {
+    if (!aiOn) return;
+    while (aiBuf.length && (force || aiBuf.length >= aiBatchSize)) {
+      const batch = aiBuf.splice(0, aiBatchSize);
+      batch.forEach((r) => { r.aiPending = true; });
+      aiInFlightRooms += batch.length; setPending();
       (async () => {
-        result.aiPending = true;
         try {
-          const ctx = await researchContext();
-          result.ai = await aiResearchRoom(ctx, state.vault.ai, { hotel: result.hotelName || result.code, room: result.room, ourAttrs: result.merchant, candidateAttrs: result.best });
-        } catch (e) { result.ai = { error: String(e?.message || e) }; }
-        finally { result.aiPending = false; }
-      })().finally(() => { aiActive -= 1; state.batch.aiPending = aiQueue.length + aiActive; pumpAI(); });
+          const items = batch.map((r) => ({ hotel: r.hotelName || r.code, room: r.room, our: r.merchant, cand: r.best }));
+          const verdicts = await aiVerifyBatch(state.vault.ai, items);
+          batch.forEach((r, n) => { r.ai = verdicts[n]; r.aiPending = false; });
+        } catch (e) { batch.forEach((r) => { r.ai = { error: String(e?.message || e) }; r.aiPending = false; }); }
+        finally { aiInFlightRooms -= batch.length; setPending(); }
+      })();
     }
-    state.batch.aiPending = aiQueue.length + aiActive;
   }
-  const scheduleAI = (result) => { if (aiOn) { aiQueue.push(result); pumpAI(); } };
+  const scheduleAI = (result) => { if (aiOn && (Number(result.best.score) || 0) >= aiMinScore) { aiBuf.push(result); setPending(); flushAI(false); } };
   // Persist the (now logged-in) session so future runs skip the manual login.
   await state.context.storageState({ path: state._sessionFile }).catch(() => {});
   console.log(`[batch] start — up to ${limit} fresh hotel(s) from #${offset + 1} (cooldown ${s.cooldownDays}d)`);
@@ -128,6 +134,7 @@ async function runBatch(limit, offset = 0, autoAI = false) {
     if (!hardError) { markScanned(cache, code, hadBest ? "hasRooms" : "empty"); saveCache(cache); }
     state.batch.done += 1;
   }
+  flushAI(true); // verify any remaining buffered rooms (partial last batch)
   state.batch.running = false;
   console.log(`[batch] done — ${state.batch.results.filter((r) => r.best).length} recommendation(s), ${state.batch.skipped} skipped by cooldown`);
 }
