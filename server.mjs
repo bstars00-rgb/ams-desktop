@@ -13,7 +13,7 @@ import { loadCache, saveCache, clearCache, markScanned, coolingDown } from "./li
 import { loadUsage, resetUsage } from "./lib/usage.mjs";
 import { readPage, analyze, highlight, dumpPage } from "./lib/recommend.mjs";
 import * as ctrip from "./lib/ctrip.mjs";
-import { aiResearchRoom } from "./lib/ai.mjs";
+import { aiResearchRoom, setAiRpm } from "./lib/ai.mjs";
 import { audit } from "./lib/audit.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -51,6 +51,7 @@ async function runBatch(limit, offset = 0, autoAI = false) {
       for (const ln of lines.slice(1)) { const c = ln.split('","').map((x) => x.replace(/^"|"$/g, "")); if (c[ci]) hotelNames[c[ci]] = c[ni]; }
     }
   } catch { /* ignore */ }
+  setAiRpm(s.aiRpm); // throttle AI to the org's per-minute limit
   const aiOn = !!(autoAI && state.vault?.ai?.key);
   state.batch = { running: true, total: limit, done: 0, skipped: 0, current: "", results: [], error: null, aiOn, aiPending: 0 };
   // AI 외부검증을 스캔과 동시에(병렬) 미리 실행 — 룸을 클릭하면 결과가 이미 준비됨.
@@ -212,6 +213,7 @@ const server = http.createServer(async (req, res) => {
       if (!state.context) return json(res, 400, { error: "먼저 브라우저 열기" });
       const { hotel, room, ourAttrs, candidateAttrs } = await body(req);
       try {
+        setAiRpm(loadSettings().aiRpm);
         const r = await aiResearchRoom(await researchContext(), state.vault.ai, { hotel, room, ourAttrs, candidateAttrs });
         audit({ operator: state.operator, client: state.activeClient?.name, action: "AI_RESEARCH", hotel, room, verdict: r.same_room, confidence: r.confidence });
         return json(res, 200, { ok: true, result: r });
