@@ -204,7 +204,7 @@
   <div class="card" id="batchCard">
     <h2><span class="step">3</span> <span data-i18n="b_h2">자동 스캔 (호텔코드 → 룸별 추천 자동 수집)</span></h2>
     <div class="row">
-      <label class="muted"><span data-i18n="b_offset">시작 위치</span> <input id="batchOffset" type="number" value="0" min="0" style="width:72px"/></label>
+      <label class="muted" title="목록에서 몇 번째 호텔코드부터 시작할지 (1 = 첫 번째)"><span data-i18n="b_offset">시작 위치</span> <input id="batchOffset" type="number" value="1" min="1" style="width:72px"/></label>
       <label class="muted"><span data-i18n="b_limit">최대 호텔 수(신규)</span> <input id="batchLimit" type="number" value="20" min="1" max="50" style="width:64px"/></label>
       <label class="muted"><input type="checkbox" id="batchAI" checked style="vertical-align:middle"/> <span data-i18n="b_ai">스캔하며 AI 검증</span></label>
       <button class="primary" onclick="startBatch()" data-i18n="b_start">자동 스캔 시작</button>
@@ -515,7 +515,7 @@ async function recommend() {
 }
 async function startBatch() {
   $("batchMsg").textContent = "시작 중…";
-  const r = await api("/api/batch/start", { limit: Number($("batchLimit").value), offset: Number($("batchOffset").value), autoAI: $("batchAI").checked });
+  const r = await api("/api/batch/start", { limit: Number($("batchLimit").value), offset: Math.max(0, Number($("batchOffset").value)-1), autoAI: $("batchAI").checked });
   $("batchMsg").textContent = r.ok ? "스캔 중… (룸마다 모달 자동 + AI 병렬 검증)" : (r.error||"실패");
   refresh();
 }
