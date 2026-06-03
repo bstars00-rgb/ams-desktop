@@ -49,6 +49,8 @@
   .formgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
   .formgrid label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:#475569; font-weight:600; }
   .formgrid input { width:100%; }
+  .dash-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width: 1100px){ .dash-row { grid-template-columns:1fr; } }
 
   /* controls */
   .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
@@ -105,6 +107,9 @@
 <div id="app" class="hide">
   <aside id="nav">
     <div class="nav-brand"><div class="logo">AMS</div><div><div class="nav-title">AMS</div><div class="nav-sub">Mapping Platform</div></div></div>
+    <div class="nav-sec">메뉴</div>
+    <button class="nav-item active" id="navWork" onclick="showView('work')">🗂 매핑 작업</button>
+    <button class="nav-item" id="navSettings" onclick="showView('settings')">⚙ 설정</button>
     <div class="nav-sec">업체 (고객 금고)</div>
     <div id="clientNav"></div>
     <button class="nav-add" onclick="newClient()">+ 새 업체 추가</button>
@@ -139,6 +144,9 @@
       </div>
     </div>
 
+  <!-- ===== 매핑 작업 뷰 ===== -->
+  <div id="viewWork">
+  <div class="dash-row">
   <!-- ① 작업 큐 -->
   <div class="card" id="queueCard">
     <h2><span class="step">1</span> 작업 큐 (매핑 리스트에서 추출)</h2>
@@ -169,6 +177,8 @@
     <div class="scroll hide" id="resultWrap" style="margin-top:12px"><table id="resultTable"></table></div>
   </div>
 
+  </div><!-- /dash-row -->
+
   <!-- ③ 자동 스캔 (배치) -->
   <div class="card" id="batchCard">
     <h2><span class="step">3</span> 자동 스캔 (호텔코드 → 룸별 추천 자동 수집)</h2>
@@ -187,6 +197,10 @@
   </div>
 
   <!-- 4. 설정 -->
+  </div><!-- /viewWork -->
+
+  <!-- ===== 설정 뷰 ===== -->
+  <div id="viewSettings" class="hide">
   <div class="card" id="setCard">
     <h2><span class="step">4</span> 설정 (알고리즘 · 비밀번호 · AI)</h2>
     <p class="hint">점수 가중치·임계값. 바꾸면 다음 추천부터 반영됩니다.</p>
@@ -223,6 +237,7 @@
       </div>
     </div>
   </div>
+  </div><!-- /viewSettings -->
   </main>
 </div><!-- /app -->
 
@@ -290,6 +305,14 @@ async function unlock() {
   const r = await api("/api/unlock", { master:m, operator:$("operator").value });
   $("lockMsg").innerHTML = r.ok ? '<span class="ok">'+(r.created?'금고를 만들었습니다 — 환영합니다!':'열림')+'</span>' : '<span class="err">'+(r.error||'실패')+'</span>';
   if (r.ok) { $("master").value=$("master2").value=''; refresh(); }
+}
+function showView(v){
+  $("viewWork").classList.toggle("hide", v!=='work');
+  $("viewSettings").classList.toggle("hide", v!=='settings');
+  $("navWork").classList.toggle("active", v==='work');
+  $("navSettings").classList.toggle("active", v==='settings');
+  $("pageTitle").textContent = v==='settings' ? '설정' : '매핑 작업';
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 async function lockVault() {
   if (!confirm("금고를 잠글까요? (다시 쓰려면 마스터 비밀번호로 잠금 해제)")) return;
