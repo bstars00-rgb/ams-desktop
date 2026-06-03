@@ -67,16 +67,6 @@
     </div>
   </div>
 
-  <!-- 0.5 시작 -->
-  <div class="card hide" id="startCard" style="border-color:#bfdbfe;background:#f8fbff">
-    <h2>▶ 시작하기</h2>
-    <p class="hint">시트립 브라우저를 엽니다. 열린 창에서 <b>로그인 → Account 그룹선택(1210/1311) → Mapping center → Room Mapping</b> 화면을 띄운 뒤 아래 <b>③-2 자동 스캔</b>으로 진행하세요.</p>
-    <div class="row">
-      <select id="startClient"></select>
-      <button class="primary big" onclick="quickStart()">▶ 시트립 브라우저 열기 &amp; 시작</button>
-      <span id="startMsg" class="muted"></span>
-    </div>
-  </div>
 
   <!-- 1. 고객(금고) -->
   <div class="card hide" id="clientCard">
@@ -105,16 +95,19 @@
     <div class="scroll hide" id="queueWrap" style="margin-top:10px"><table id="queueTable"></table></div>
   </div>
 
-  <!-- 3. 매핑 실행 -->
+  <!-- 3. 시트립 브라우저 열기 -->
   <div class="card hide" id="runCard">
-    <h2>③ 매핑 실행 (추천 — 최종 클릭은 사람)</h2>
-    <p class="hint">고객 브라우저를 열고, 매핑 화면(Recommended Master Rooms)에서 "현재 화면 추천"을 누르면 AMS가 최적 후보를 골라 강조합니다. <b>[Mapping] 클릭은 직접</b> 하세요.</p>
+    <h2>③ 시트립 브라우저 열기 & 시작</h2>
+    <p class="hint">아래 <b>▶ 시트립 브라우저 열기</b>를 누르면 자동화용 창이 뜹니다. 그 창에서 <b>로그인 → Account 그룹선택(1210/1311) → Mapping center → Room Mapping</b> 화면을 띄운 뒤, 아래 <b>③-2 자동 스캔</b>으로 진행하세요.</p>
     <div class="row">
       <select id="runClient"></select>
-      <button onclick="openBrowser()">브라우저 열기</button>
+      <button class="primary big" onclick="openBrowser()">▶ 시트립 브라우저 열기</button>
+      <span id="runMsg" class="muted"></span>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <span class="muted">수동/디버그:</span>
       <button class="ghost" onclick="recommend()">현재 화면 추천 ★</button>
       <button class="ghost" onclick="dump()">현재 화면 HTML 저장</button>
-      <span id="runMsg" class="muted"></span>
     </div>
     <div class="scroll hide" id="resultWrap" style="margin-top:12px"><table id="resultTable"></table></div>
   </div>
@@ -200,7 +193,7 @@ async function refresh() {
     $("master2").classList.toggle("hide", !first);
     $("lockBtn").textContent = first ? "만들고 시작" : "잠금 해제";
   }
-  ["startCard","clientCard","queueCard","runCard","batchCard","setCard"].forEach(id=>$(id).classList.toggle("hide", !s.unlocked));
+  ["clientCard","queueCard","runCard","batchCard","setCard"].forEach(id=>$(id).classList.toggle("hide", !s.unlocked));
   if (!s.unlocked) return;
 
   renderBatch(s.batch);
@@ -211,7 +204,6 @@ async function refresh() {
     ? s.clients.map(c=>`• <b>${c.name}</b> <span class="muted">${c.url}</span>`).join("<br>")
     : "(등록된 고객 없음 — 아래에서 추가)";
   $("runClient").innerHTML = s.clients.map(c=>`<option>${c.name}</option>`).join("");
-  $("startClient").innerHTML = s.clients.map(c=>`<option>${c.name}</option>`).join("") || '<option>(고객 없음 — ① 에서 추가)</option>';
 
   // channels
   $("queueHint").innerHTML = s.mappingFile ? `파일: <b>${s.mappingFile}</b> — 채널을 고르면 'Unmapped' 룸만 뽑습니다.` : "Mapping List 폴더에 엑셀을 넣어주세요.";
@@ -252,15 +244,6 @@ async function changeMaster() {
   $("pwMsg").innerHTML = r.ok ? '<span class="ok">변경됨</span>' : '<span class="err">'+(r.error||'실패')+'</span>';
   if (r.ok) { $("oldMaster").value=$("newMaster").value=''; }
 }
-async function quickStart() {
-  $("startMsg").textContent = "시트립 브라우저 여는 중…";
-  const r = await api("/api/browser/open", { client:$("startClient").value });
-  if (r.ok) {
-    $("startMsg").innerHTML = '<span class="ok">열림 — 그 창에서 로그인·그룹선택·Room Mapping 후, 아래 자동 스캔</span>';
-    const bc=$("batchCard"); if(bc) bc.scrollIntoView({behavior:"smooth",block:"start"});
-  } else $("startMsg").innerHTML = '<span class="err">'+(r.error||"실패")+'</span>';
-  refresh();
-}
 async function addClient() {
   const r = await api("/api/client", { name:$("cName").value, url:$("cUrl").value, id:$("cId").value, pw:$("cPw").value });
   if (r.ok){ $("cName").value=$("cUrl").value=$("cId").value=$("cPw").value=""; refresh(); }
@@ -280,7 +263,10 @@ async function buildQueue() {
 async function openBrowser() {
   $("runMsg").textContent = "브라우저 여는 중…";
   const r = await api("/api/browser/open", { client:$("runClient").value });
-  $("runMsg").textContent = r.ok ? "열림 — 매핑 화면으로 이동 후 '현재 화면 추천'" : (r.error||"실패");
+  if (r.ok) {
+    $("runMsg").innerHTML = '<span class="ok">열림 — 그 창에서 로그인·그룹선택·Room Mapping 후, 아래 ③-2 자동 스캔</span>';
+    const bc=$("batchCard"); if(bc) bc.scrollIntoView({behavior:"smooth",block:"start"});
+  } else $("runMsg").innerHTML = '<span class="err">'+(r.error||"실패")+'</span>';
   refresh();
 }
 async function recommend() {
