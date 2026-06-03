@@ -149,7 +149,8 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   try {
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      // no-store so the browser always loads the latest UI (avoids stale cached pages)
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store, must-revalidate", "Pragma": "no-cache" });
       return res.end(fs.readFileSync(path.join(__dirname, "public/index.html")));
     }
     if (url.pathname === "/api/status") {

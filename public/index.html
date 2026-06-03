@@ -302,9 +302,19 @@ async function unlock() {
   const m = $("master").value;
   if (!m || m.length < 4) { $("lockMsg").innerHTML='<span class="err">비밀번호는 4자 이상</span>'; return; }
   if (first && m !== $("master2").value) { $("lockMsg").innerHTML='<span class="err">비밀번호 확인이 일치하지 않습니다.</span>'; return; }
+  $("lockMsg").innerHTML = '<span class="muted">확인 중…</span>';
   const r = await api("/api/unlock", { master:m, operator:$("operator").value });
-  $("lockMsg").innerHTML = r.ok ? '<span class="ok">'+(r.created?'금고를 만들었습니다 — 환영합니다!':'열림')+'</span>' : '<span class="err">'+(r.error||'실패')+'</span>';
-  if (r.ok) { $("master").value=$("master2").value=''; refresh(); }
+  if (r.ok) {
+    $("master").value=$("master2").value='';
+    $("lockMsg").innerHTML='';
+    // 로그인 성공 → 즉시 대시보드 페이지로 전환
+    $("lockScreen").classList.add("hide");
+    $("app").classList.remove("hide");
+    showView('work');
+    refresh();
+  } else {
+    $("lockMsg").innerHTML = '<span class="err">'+(r.error||'실패')+'</span>';
+  }
 }
 function showView(v){
   $("viewWork").classList.toggle("hide", v!=='work');
