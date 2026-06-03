@@ -231,13 +231,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/map/prepare") {
       if (!state.page) return json(res, 400, { error: "먼저 ③ 브라우저 열기" });
       if (state.batch?.running) return json(res, 400, { error: "자동 스캔 중에는 매핑 준비를 할 수 없습니다 — 스캔이 끝난 뒤 시도하세요." });
-      const { code, basicRoomId, roomIndex, masterId, masterName } = await body(req);
+      const { code, basicRoomId, roomIndex, masterId, masterName, autoConfirm } = await body(req);
       if (!code || masterId == null) return json(res, 400, { error: "code/masterId 필요" });
       try {
-        const r = await ctrip.prepareMapping(state.page, { code, basicRoomId, roomIndex, masterId });
-        // Cool this hotel down — we assume the human will complete the [Mapping].
+        const r = await ctrip.prepareMapping(state.page, { code, basicRoomId, roomIndex, masterId, autoConfirm: !!autoConfirm });
         const c = loadCache(); markScanned(c, code, "mapped"); saveCache(c);
-        audit({ operator: state.operator, client: state.activeClient?.name, action: "MAP_PREPARE", code, basicRoomId, masterId, masterName });
+        audit({ operator: state.operator, client: state.activeClient?.name, action: r.confirmed ? "MAP_CONFIRM" : "MAP_PREPARE", code, basicRoomId, masterId, masterName });
         return json(res, 200, { ok: true, ...r });
       } catch (e) {
         return json(res, 502, { error: String(e?.message || e) });
