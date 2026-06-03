@@ -5,16 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AMS Desktop — 매핑 콘솔</title>
 <style>
-  :root { --b:#2f55d4; --b2:#243f99; --line:#e6e9f0; --bg:#eef1f7; --nav:#0f172a; --navtxt:#cbd5e1; }
+  :root {
+    --b:#2f55d4; --b2:#243f99; --nav:#0f172a; --navtxt:#cbd5e1;
+    --bg:#eef1f7; --card:#ffffff; --text:#0f172a; --line:#e6e9f0; --muted-c:#64748b;
+    --inputbg:#ffffff; --inputbd:#cbd5e1; --thbg:#f8fafc; --hover:#f1f5f9; --shadow:rgba(15,23,42,.06);
+    --hl:#eef3ff; --hlbest:#f0fdf4; --missbg:#fef2f2; --miss:#b91c1c; --aibg:#f8fafc;
+  }
+  :root[data-theme="dark"] {
+    --bg:#0b1220; --card:#111a2e; --text:#e5e7eb; --line:#27324a; --muted-c:#9aa6b8;
+    --inputbg:#0e1626; --inputbd:#374151; --thbg:#0e1626; --hover:#1f2a40; --shadow:rgba(0,0,0,.35);
+    --hl:#13233f; --hlbest:#102a1c; --missbg:#3a1820; --miss:#fca5a5; --aibg:#0e1626;
+  }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:"Malgun Gothic",system-ui,sans-serif; background:var(--bg); color:#0f172a; }
+  body { margin:0; font-family:"Malgun Gothic",system-ui,sans-serif; background:var(--bg); color:var(--text); }
 
   /* lock screen */
   #lockScreen { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
-  .lockbox { background:#fff; border:1px solid var(--line); border-radius:18px; padding:34px; width:390px; box-shadow:0 12px 44px rgba(15,23,42,.10); text-align:center; }
+  .lockbox { background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:18px; padding:34px; width:390px; box-shadow:0 12px 44px var(--shadow); text-align:center; }
   .lockbox input { width:100%; margin:6px 0; }
   .brand-lg { width:56px;height:56px;border-radius:15px;background:var(--b);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:21px;margin:0 auto 8px; }
-  .brand-sub { color:#64748b; font-size:12px; margin-bottom:18px; }
+  .brand-sub { color:var(--muted-c); font-size:12px; margin-bottom:18px; }
   .lockbox h2 { margin:0 0 4px; font-size:18px; }
 
   /* app shell */
@@ -42,49 +52,54 @@
   @media (max-width: 860px){ #nav { position:static; width:auto; flex:none; } #content { margin-left:0; } #app{ flex-direction:column; } }
 
   /* cards */
-  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+  .card { background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:14px; padding:20px; box-shadow:0 1px 2px var(--shadow); }
   .card h2 { margin:0 0 6px; font-size:15px; display:flex; align-items:center; gap:9px; }
-  .card p.hint { margin:0 0 12px; font-size:12.5px; color:#64748b; line-height:1.55; }
+  .card p.hint { margin:0 0 12px; font-size:12.5px; color:var(--muted-c); line-height:1.55; }
   .step { width:24px;height:24px;border-radius:50%;background:var(--b);color:#fff;font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:0 0 24px; }
   .formgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
-  .formgrid label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:#475569; font-weight:600; }
+  .formgrid label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted-c); font-weight:600; }
   .formgrid input { width:100%; }
   .dash-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   @media (max-width: 1100px){ .dash-row { grid-template-columns:1fr; } }
 
   /* controls */
   .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  input,select { border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; font-size:13px; outline:none; background:#fff; }
+  input,select { border:1px solid var(--inputbd); border-radius:8px; padding:8px 10px; font-size:13px; outline:none; background:var(--inputbg); color:var(--text); }
   input:focus,select:focus { border-color:var(--b); }
   button { background:var(--b); color:#fff; border:0; border-radius:8px; padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer; }
   button:hover { background:var(--b2); }
-  button.ghost { background:#fff; color:#334155; border:1px solid #cbd5e1; }
-  button.ghost:hover { background:#f1f5f9; }
-  button.danger { background:#fff; color:#b91c1c; border:1px solid #fca5a5; }
-  button.danger:hover { background:#fef2f2; }
+  button.ghost { background:var(--card); color:var(--text); border:1px solid var(--inputbd); }
+  button.ghost:hover { background:var(--hover); }
+  button.danger { background:var(--card); color:#dc2626; border:1px solid #b91c1c; }
+  button.danger:hover { background:var(--missbg); }
   button:disabled { opacity:.5; cursor:not-allowed; }
   button.primary { background:var(--b2); color:#fff; border-color:var(--b2); font-weight:700; }
-  button.primary:hover { filter:brightness(1.08); }
+  button.primary:hover { filter:brightness(1.12); }
   button.big { padding:11px 20px; font-size:15px; }
-  .hdrbtn { background:#fff; border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:12px; cursor:pointer; color:#334155; }
-  .hdrbtn:hover { background:#f1f5f9; }
+  .hdrbtn { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:12px; cursor:pointer; color:var(--text); }
+  .hdrbtn:hover { background:var(--hover); }
   table { width:100%; border-collapse:collapse; font-size:12px; }
-  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid #f1f5f9; white-space:nowrap; }
-  th { color:#64748b; font-weight:600; background:#f8fafc; }
+  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--muted-c); font-weight:600; background:var(--thbg); }
   .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
   .auto{background:#dcfce7;color:#15803d} .review{background:#fef3c7;color:#b45309} .nomatch{background:#fee2e2;color:#b91c1c}
   .t99{background:#064e3b;color:#fff} .t95{background:#15803d;color:#fff} .t90{background:#4d7c0f;color:#fff} .t80{background:#b45309;color:#fff} .t65{background:#c2410c;color:#fff} .t0{background:#b91c1c;color:#fff}
-  .stat { display:inline-flex; gap:6px; align-items:center; background:#fff; border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:12px; }
-  .stat b { color:var(--b2); }
-  .muted { color:#94a3b8; font-size:12px; }
+  .stat { display:inline-flex; gap:6px; align-items:center; background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:12px; }
+  .stat b { color:var(--b); }
+  .muted { color:var(--muted-c); font-size:12px; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   .scroll { overflow:auto; max-height:360px; border:1px solid var(--line); border-radius:8px; }
   .hide { display:none !important; }
-  .ok { color:#15803d; } .err { color:#b91c1c; }
+  .ok { color:#16a34a; } .err { color:#ef4444; }
   label.w { display:flex; align-items:center; gap:8px; font-size:12px; }
   label.w input[type=range]{ flex:1; }
-  .rlink { display:inline-block; border:1px solid #cbd5e1; border-radius:7px; padding:4px 9px; font-size:12px; color:#334155; text-decoration:none; margin:2px 2px 2px 0; }
-  .rlink:hover { background:#f1f5f9; }
+  .rlink { display:inline-block; border:1px solid var(--inputbd); border-radius:7px; padding:4px 9px; font-size:12px; color:var(--text); text-decoration:none; margin:2px 2px 2px 0; background:var(--card); }
+  .rlink:hover { background:var(--hover); }
+  /* themed highlights (used by compare tables) */
+  .rowhl { background:var(--hl) !important; }
+  .rowbest { background:var(--hlbest) !important; }
+  .mismatch { background:var(--missbg) !important; color:var(--miss) !important; font-weight:700; }
+  .aibox { background:var(--aibg) !important; border-color:#6d8bd6 !important; }
 </style>
 </head>
 <body>
@@ -92,15 +107,19 @@
 <div id="lockScreen">
   <div class="lockbox">
     <div class="brand-lg">AMS</div>
-    <div class="brand-sub">Room Mapping Platform · 로컬 전용</div>
+    <div class="brand-sub" data-i18n="brand_sub">Room Mapping Platform · 로컬 전용</div>
     <h2 id="lockTitle">잠금 해제</h2>
     <p class="hint" id="lockHint" style="text-align:center">마스터 비밀번호로 금고를 엽니다.</p>
-    <input id="operator" placeholder="내 이름 (로그용)" onkeydown="if(event.key==='Enter')unlock()" />
-    <input id="master" type="password" placeholder="마스터 비밀번호" onkeydown="if(event.key==='Enter')unlock()" />
-    <input id="master2" type="password" placeholder="비밀번호 확인" class="hide" onkeydown="if(event.key==='Enter')unlock()" />
+    <input id="operator" data-i18n-ph="lock_op" placeholder="내 이름 (로그용)" onkeydown="if(event.key==='Enter')unlock()" />
+    <input id="master" type="password" data-i18n-ph="lock_pw" placeholder="마스터 비밀번호" onkeydown="if(event.key==='Enter')unlock()" />
+    <input id="master2" type="password" data-i18n-ph="lock_pw2" placeholder="비밀번호 확인" class="hide" onkeydown="if(event.key==='Enter')unlock()" />
     <button class="primary big" id="lockBtn" onclick="unlock()" style="width:100%;margin-top:8px">잠금 해제</button>
     <div id="lockMsg" class="muted" style="margin-top:8px"></div>
-    <button class="hdrbtn hide" id="resetBtn" onclick="resetVault()" style="margin-top:14px">비밀번호를 잊으셨나요? 금고 초기화</button>
+    <button class="hdrbtn hide" id="resetBtn" onclick="resetVault()" data-i18n="lock_reset" style="margin-top:14px">비밀번호를 잊으셨나요? 금고 초기화</button>
+    <div class="row" style="justify-content:center;gap:8px;margin-top:14px">
+      <button class="hdrbtn themeBtn" onclick="toggleTheme()" title="Theme">🌙</button>
+      <button class="hdrbtn langBtn" onclick="toggleLang()" title="Language">EN</button>
+    </div>
   </div>
 </div>
 
@@ -108,15 +127,19 @@
 <div id="app" class="hide">
   <aside id="nav">
     <div class="nav-brand"><div class="logo">AMS</div><div><div class="nav-title">AMS</div><div class="nav-sub">Mapping Platform</div></div></div>
-    <div class="nav-sec">메뉴</div>
-    <button class="nav-item active" id="navWork" onclick="showView('work')">🗂 매핑 작업</button>
-    <button class="nav-item" id="navSettings" onclick="showView('settings')">⚙ 설정</button>
-    <div class="nav-sec">업체 (고객 금고)</div>
+    <div class="nav-sec" data-i18n="nav_menu">메뉴</div>
+    <button class="nav-item active" id="navWork" onclick="showView('work')" data-i18n="nav_work">🗂 매핑 작업</button>
+    <button class="nav-item" id="navSettings" onclick="showView('settings')" data-i18n="nav_settings">⚙ 설정</button>
+    <div class="nav-sec" data-i18n="nav_clients">업체 (고객 금고)</div>
     <div id="clientNav"></div>
-    <button class="nav-add" onclick="newClient()">+ 새 업체 추가</button>
+    <button class="nav-add" onclick="newClient()" data-i18n="nav_addvendor">+ 새 업체 추가</button>
     <div class="nav-foot">
       <div class="who" id="navOperator"></div>
-      <button class="hdrbtn" onclick="lockVault()">🔒 잠그기</button>
+      <div class="row" style="gap:6px">
+        <button class="hdrbtn themeBtn" onclick="toggleTheme()" title="Theme" style="flex:0 0 auto">🌙</button>
+        <button class="hdrbtn langBtn" onclick="toggleLang()" title="Language" style="flex:0 0 auto">EN</button>
+        <button class="hdrbtn" onclick="lockVault()" data-i18n="foot_lock" style="flex:1">🔒 잠그기</button>
+      </div>
     </div>
   </aside>
 
@@ -128,19 +151,19 @@
 
     <!-- 업체 상세 (사이드바에서 업체 클릭 시) -->
     <div class="card hide" id="clientDetail">
-      <h2 id="cdTitle">🔐 업체 정보</h2>
-      <p class="hint">로그인 정보(암호화 저장). <b>수정·삭제하려면 콘솔 비밀번호가 필요합니다.</b></p>
+      <h2 id="cdTitle" data-i18n="cd_title">🔐 업체 정보</h2>
+      <p class="hint" data-i18n="cd_hint">로그인 정보(암호화 저장). 수정·삭제하려면 콘솔 비밀번호가 필요합니다.</p>
       <div class="formgrid">
-        <label>이름 <input id="dName" placeholder="예: Ctrip" /></label>
-        <label>로그인 URL <div class="row" style="gap:6px"><input id="dUrl" placeholder="https://..." style="flex:1"/><button type="button" class="ghost" onclick="window.open($('dUrl').value,'_blank')">열기</button></div></label>
-        <label>ID / 이메일 <div class="row" style="gap:6px"><input id="dId" placeholder="ID" style="flex:1"/><button type="button" class="ghost" onclick="copyVal('dId')">복사</button></div></label>
-        <label>비밀번호 <div class="row" style="gap:6px"><input id="dPw" type="password" placeholder="비밀번호" style="flex:1"/><button type="button" class="ghost" onclick="togglePw()" id="pwEye">👁 보기</button><button type="button" class="ghost" onclick="copyVal('dPw')">복사</button></div></label>
-        <label>콘솔 비밀번호 (수정·삭제 인증) <input id="cAuth" type="password" placeholder="수정·삭제할 때만 입력" /></label>
+        <label><span data-i18n="f_name">이름</span> <input id="dName" placeholder="Ctrip" /></label>
+        <label><span data-i18n="f_url">로그인 URL</span> <div class="row" style="gap:6px"><input id="dUrl" placeholder="https://..." style="flex:1"/><button type="button" class="ghost" onclick="window.open($('dUrl').value,'_blank')" data-i18n="btn_open">열기</button></div></label>
+        <label><span data-i18n="f_id">ID / 이메일</span> <div class="row" style="gap:6px"><input id="dId" placeholder="ID" style="flex:1"/><button type="button" class="ghost" onclick="copyVal('dId')" data-i18n="btn_copy">복사</button></div></label>
+        <label><span data-i18n="f_pw">비밀번호</span> <div class="row" style="gap:6px"><input id="dPw" type="password" data-i18n-ph="f_pw_ph" placeholder="변경 시에만 입력" style="flex:1"/><button type="button" class="ghost" onclick="togglePw()" id="pwEye" data-i18n="btn_show">👁 보기</button><button type="button" class="ghost" onclick="copyVal('dPw')" data-i18n="btn_copy">복사</button></div></label>
+        <label><span data-i18n="f_cpw">콘솔 비밀번호 (수정·삭제 인증)</span> <input id="cAuth" type="password" data-i18n-ph="f_cpw_ph" placeholder="수정·삭제할 때만 입력" /></label>
       </div>
       <div class="row" style="margin-top:12px">
-        <button class="primary" onclick="saveDetail()">저장</button>
-        <button class="danger hide" id="cdDelete" onclick="deleteDetail()">삭제</button>
-        <button class="ghost" onclick="closeDetail()">닫기</button>
+        <button class="primary" onclick="saveDetail()" data-i18n="btn_save">저장</button>
+        <button class="danger hide" id="cdDelete" onclick="deleteDetail()" data-i18n="btn_del">삭제</button>
+        <button class="ghost" onclick="closeDetail()" data-i18n="btn_close">닫기</button>
         <span id="cdMsg" class="muted"></span>
       </div>
     </div>
@@ -149,11 +172,11 @@
   <div id="viewWork">
   <!-- ① 작업 큐 -->
   <div class="card" id="queueCard">
-    <h2><span class="step">1</span> 작업 큐 (매핑 리스트에서 추출)</h2>
+    <h2><span class="step">1</span> <span data-i18n="q_h2">작업 큐 (매핑 리스트에서 추출)</span></h2>
     <p class="hint" id="queueHint"></p>
     <div class="row">
       <select id="channel"></select>
-      <button class="primary" id="queueBtn" onclick="buildQueue()">작업 큐 만들기</button>
+      <button class="primary" id="queueBtn" onclick="buildQueue()" data-i18n="q_btn">작업 큐 만들기</button>
       <span id="queueMsg" class="muted"></span>
     </div>
     <div id="queueStats" style="margin-top:12px"></div>
@@ -162,34 +185,33 @@
 
   <!-- ② 시트립 브라우저 열기 -->
   <div class="card" id="runCard">
-    <h2><span class="step">2</span> 시트립 브라우저 열기 & 로그인</h2>
-    <p class="hint">아래 <b>▶ 시트립 브라우저 열기</b>를 누르면 자동화용 창이 뜹니다. 그 창에서 <b>로그인 → Account 그룹선택(1210/1311) → Mapping center → Room Mapping</b> 화면을 띄운 뒤, 아래 <b>③ 자동 스캔</b>으로 진행하세요.</p>
+    <h2><span class="step">2</span> <span data-i18n="r_h2">시트립 브라우저 열기 & 로그인</span></h2>
+    <p class="hint" data-i18n="r_hint">아래 ▶ 시트립 브라우저 열기를 누르면 자동화용 창이 뜹니다. 그 창에서 로그인 → 그룹선택(1210/1311) → Mapping center → Room Mapping 화면을 띄운 뒤, 아래 ③ 자동 스캔으로 진행하세요.</p>
     <div class="row">
       <select id="runClient"></select>
-      <button class="primary big" onclick="openBrowser()">▶ 시트립 브라우저 열기</button>
+      <button class="primary big" onclick="openBrowser()" data-i18n="r_open">▶ 시트립 브라우저 열기</button>
       <span id="runMsg" class="muted"></span>
     </div>
     <div class="row" style="margin-top:8px">
-      <span class="muted">수동/디버그:</span>
-      <button class="ghost" onclick="recommend()">현재 화면 추천 ★</button>
-      <button class="ghost" onclick="dump()">현재 화면 HTML 저장</button>
+      <span class="muted" data-i18n="r_manual">수동/디버그:</span>
+      <button class="ghost" onclick="recommend()" data-i18n="r_rec">현재 화면 추천 ★</button>
+      <button class="ghost" onclick="dump()" data-i18n="r_dump">현재 화면 HTML 저장</button>
     </div>
     <div class="scroll hide" id="resultWrap" style="margin-top:12px"><table id="resultTable"></table></div>
   </div>
 
   <!-- ③ 자동 스캔 (배치) -->
   <div class="card" id="batchCard">
-    <h2><span class="step">3</span> 자동 스캔 (호텔코드 → 룸별 추천 자동 수집)</h2>
-    <p class="hint"><b>스캔 전 준비:</b> ② 브라우저 열기 → 시트립 로그인 → <b>그룹 선택(1210/1311)</b> → <b>Room Mapping</b> 화면을 띄워두세요. 그 화면에서 호텔코드를 바꿔가며 자동 조회→룸 모달→AMS 추천을 모읍니다. <b>최종 [Mapping] 클릭은 사람.</b></p>
+    <h2><span class="step">3</span> <span data-i18n="b_h2">자동 스캔 (호텔코드 → 룸별 추천 자동 수집)</span></h2>
     <div class="row">
-      <label class="muted">시작 위치 <input id="batchOffset" type="number" value="0" min="0" style="width:72px"/></label>
-      <label class="muted">최대 호텔 수(신규) <input id="batchLimit" type="number" value="20" min="1" max="50" style="width:64px"/></label>
-      <label class="muted" title="스캔과 동시에 AI가 웹에서 룸을 검증 — 클릭하면 결과가 이미 준비됨"><input type="checkbox" id="batchAI" checked style="vertical-align:middle"/> 스캔하며 AI 검증</label>
-      <button class="primary" onclick="startBatch()">자동 스캔 시작</button>
+      <label class="muted"><span data-i18n="b_offset">시작 위치</span> <input id="batchOffset" type="number" value="0" min="0" style="width:72px"/></label>
+      <label class="muted"><span data-i18n="b_limit">최대 호텔 수(신규)</span> <input id="batchLimit" type="number" value="20" min="1" max="50" style="width:64px"/></label>
+      <label class="muted"><input type="checkbox" id="batchAI" checked style="vertical-align:middle"/> <span data-i18n="b_ai">스캔하며 AI 검증</span></label>
+      <button class="primary" onclick="startBatch()" data-i18n="b_start">자동 스캔 시작</button>
       <span id="batchMsg" class="muted"></span>
     </div>
-    <p class="hint" style="margin:6px 0 0">쿨다운 중인(최근에 결과 없던/매핑한) 코드는 자동으로 건너뜁니다. <span id="cacheInfo" class="muted"></span> <button class="ghost" style="padding:2px 8px" onclick="clearCache()">캐시 비우기(전체 재검색)</button></p>
-    <p class="hint" style="margin:8px 0 0;border-top:1px dashed var(--line);padding-top:8px"><b>처리 정책:</b> <span class="pill t99">99%+</span> 맵핑 시작 · <span class="pill t95">95%+</span> AI검증 후 시작 · <span class="pill t90">90%+</span> 사람 검토 · <span class="pill t80">80%+</span> 보류(신중) · <span class="pill t65">65%+</span> 보류 · <span class="pill t0">&lt;65%</span> 수동. <b>⚠ 베드 충돌이면 점수와 무관하게 검토.</b> 최종 [Mapping] 클릭은 항상 사람.</p>
+    <p class="hint" style="margin:6px 0 0"><span data-i18n="b_cooldown">쿨다운 중인(최근에 결과 없던/매핑한) 코드는 자동으로 건너뜁니다.</span> <span id="cacheInfo" class="muted"></span> <button class="ghost" style="padding:2px 8px" onclick="clearCache()" data-i18n="b_clearcache">캐시 비우기(전체 재검색)</button></p>
+    <p class="hint" style="margin:8px 0 0;border-top:1px dashed var(--line);padding-top:8px"><b data-i18n="pol_label">처리 정책:</b> <span class="pill t99">99%+</span> <span data-i18n="pol_99">맵핑 시작</span> · <span class="pill t95">95%+</span> <span data-i18n="pol_95">AI검증 후 시작</span> · <span class="pill t90">90%+</span> <span data-i18n="pol_90">사람 검토</span> · <span class="pill t80">80%+</span> <span data-i18n="pol_80">보류(신중)</span> · <span class="pill t65">65%+</span> <span data-i18n="pol_65">보류</span> · <span class="pill t0">&lt;65%</span> <span data-i18n="pol_0">수동</span>. <b data-i18n="pol_bed">⚠ 베드 충돌이면 점수와 무관하게 검토. 최종 [Mapping] 클릭은 항상 사람.</b></p>
     <div id="batchProg" style="margin-top:10px"></div>
     <div id="bulk99Bar" style="margin:8px 0"></div>
     <!-- 99%+ 일괄 매핑 준비 워커 -->
@@ -213,37 +235,34 @@
   <!-- ===== 설정 뷰 ===== -->
   <div id="viewSettings" class="hide">
   <div class="card" id="setCard">
-    <h2><span class="step">4</span> 설정 (알고리즘 · 비밀번호 · AI)</h2>
-    <p class="hint">점수 가중치·임계값. 바꾸면 다음 추천부터 반영됩니다.</p>
+    <h2><span class="step">4</span> <span data-i18n="s_h2">설정 (알고리즘 · 비밀번호 · AI)</span></h2>
+    <p class="hint" data-i18n="s_hint">점수 가중치·임계값. 바꾸면 다음 추천부터 반영됩니다.</p>
     <div class="grid2">
       <div id="weights"></div>
       <div>
-        <label class="w">자동확정 ≥ <input id="autoTh" type="number" min="0" max="100" style="width:70px"/></label>
-        <label class="w" style="margin-top:8px">검토 ≥ <input id="reviewTh" type="number" min="0" max="100" style="width:70px"/></label>
-        <label class="w" style="margin-top:8px">재검색 쿨다운(일) <input id="cooldownDays" type="number" min="0" max="365" style="width:70px"/></label>
-        <p class="hint" style="margin:4px 0 0">결과 없음·매핑한 호텔코드는 이 기간 동안 자동 스캔에서 건너뜁니다. 0=항상 재검색.</p>
-        <button style="margin-top:12px" onclick="saveSettings()">설정 저장</button>
+        <label class="w"><span data-i18n="s_auto">자동확정 ≥</span> <input id="autoTh" type="number" min="0" max="100" style="width:70px"/></label>
+        <label class="w" style="margin-top:8px"><span data-i18n="s_review">검토 ≥</span> <input id="reviewTh" type="number" min="0" max="100" style="width:70px"/></label>
+        <label class="w" style="margin-top:8px"><span data-i18n="s_cooldownd">재검색 쿨다운(일)</span> <input id="cooldownDays" type="number" min="0" max="365" style="width:70px"/></label>
+        <button style="margin-top:12px" onclick="saveSettings()" data-i18n="s_save">설정 저장</button>
         <span id="setMsg" class="muted"></span>
       </div>
     </div>
     <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:6px">🔑 마스터 비밀번호 변경</div>
-      <p class="hint">이 PC 금고의 비밀번호를 바꿉니다. 콘텐츠팀 각자 자신의 PC에서 설정/변경할 수 있습니다.</p>
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px" data-i18n="pw_h">🔑 마스터 비밀번호 변경</div>
       <div class="row">
-        <input id="oldMaster" type="password" placeholder="현재 비밀번호" />
-        <input id="newMaster" type="password" placeholder="새 비밀번호 (4자 이상)" />
-        <button onclick="changeMaster()">비밀번호 변경</button>
+        <input id="oldMaster" type="password" data-i18n-ph="pw_old" placeholder="현재 비밀번호" />
+        <input id="newMaster" type="password" data-i18n-ph="pw_new" placeholder="새 비밀번호 (4자 이상)" />
+        <button onclick="changeMaster()" data-i18n="pw_btn">비밀번호 변경</button>
         <span id="pwMsg" class="muted"></span>
       </div>
     </div>
     <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:6px">AI 외부 추출 <span id="aiState" class="muted"></span></div>
-      <p class="hint">호텔 공식 웹사이트를 자동으로 찾아 AI가 룸 속성을 추출·비교합니다. 키는 이 PC 금고에만 저장됩니다.</p>
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px"><span data-i18n="ai_h">AI 외부 추출</span> <span id="aiState" class="muted"></span></div>
       <div class="row">
         <select id="aiProvider"><option value="openai">OpenAI</option><option value="claude">Claude</option></select>
-        <input id="aiModel" placeholder="모델(선택)" style="width:170px"/>
-        <input id="aiKey" type="password" placeholder="API 키 (저장 후 표시 안 됨)" style="width:240px"/>
-        <button onclick="saveAiKey()">AI 키 저장</button>
+        <input id="aiModel" data-i18n-ph="ai_model" placeholder="모델(선택)" style="width:170px"/>
+        <input id="aiKey" type="password" data-i18n-ph="ai_key" placeholder="API 키 (저장 후 표시 안 됨)" style="width:240px"/>
+        <button onclick="saveAiKey()" data-i18n="ai_save">AI 키 저장</button>
         <span id="aiKeyMsg" class="muted"></span>
       </div>
     </div>
@@ -256,25 +275,88 @@
 const $ = (id) => document.getElementById(id);
 const api = (p, body) => fetch(p, body ? { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) } : {}).then(r=>r.json());
 const WK = ["name","bed","type","grade","view","area","smoke"];
-const WLABEL = {name:"이름",bed:"베드",type:"타입",grade:"등급",view:"뷰",area:"평수",smoke:"흡연"};
+
+// ===== i18n =====
+const I18N = {
+ ko:{
+  brand_sub:"Room Mapping Platform · 로컬 전용", nav_menu:"메뉴", nav_work:"🗂 매핑 작업", nav_settings:"⚙ 설정",
+  nav_clients:"업체 (고객 금고)", nav_addvendor:"+ 새 업체 추가", foot_lock:"🔒 잠그기",
+  lock_op:"내 이름 (로그용)", lock_pw:"마스터 비밀번호", lock_pw2:"비밀번호 확인", lock_reset:"비밀번호를 잊으셨나요? 금고 초기화",
+  cd_title:"🔐 업체 정보", cd_hint:"로그인 정보(암호화 저장). 수정·삭제하려면 콘솔 비밀번호가 필요합니다.",
+  f_name:"이름", f_url:"로그인 URL", f_id:"ID / 이메일", f_pw:"비밀번호", f_pw_ph:"변경 시에만 입력", f_cpw:"콘솔 비밀번호 (수정·삭제 인증)", f_cpw_ph:"수정·삭제할 때만 입력",
+  btn_open:"열기", btn_copy:"복사", btn_show:"👁 보기", btn_hide:"🙈 숨김", btn_save:"저장", btn_del:"삭제", btn_close:"닫기",
+  q_h2:"작업 큐 (매핑 리스트에서 추출)", q_btn:"작업 큐 만들기",
+  r_h2:"시트립 브라우저 열기 & 로그인", r_hint:"아래 ▶ 시트립 브라우저 열기를 누르면 자동화용 창이 뜹니다. 그 창에서 로그인 → 그룹선택(1210/1311) → Mapping center → Room Mapping 화면을 띄운 뒤, 아래 ③ 자동 스캔으로 진행하세요.",
+  r_open:"▶ 시트립 브라우저 열기", r_manual:"수동/디버그:", r_rec:"현재 화면 추천 ★", r_dump:"현재 화면 HTML 저장",
+  b_h2:"자동 스캔 (호텔코드 → 룸별 추천 자동 수집)", b_offset:"시작 위치", b_limit:"최대 호텔 수(신규)", b_ai:"스캔하며 AI 검증", b_start:"자동 스캔 시작",
+  b_cooldown:"쿨다운 중인(최근에 결과 없던/매핑한) 코드는 자동으로 건너뜁니다.", b_clearcache:"캐시 비우기(전체 재검색)",
+  pol_label:"처리 정책:", pol_99:"맵핑 시작", pol_95:"AI검증 후 시작", pol_90:"사람 검토", pol_80:"보류(신중)", pol_65:"보류", pol_0:"수동", pol_bed:"⚠ 베드 충돌이면 점수와 무관하게 검토. 최종 [Mapping] 클릭은 항상 사람.",
+  s_h2:"설정 (알고리즘 · 비밀번호 · AI)", s_hint:"점수 가중치·임계값. 바꾸면 다음 추천부터 반영됩니다.",
+  s_auto:"자동확정 ≥", s_review:"검토 ≥", s_cooldownd:"재검색 쿨다운(일)", s_save:"설정 저장",
+  pw_h:"🔑 마스터 비밀번호 변경", pw_old:"현재 비밀번호", pw_new:"새 비밀번호 (4자 이상)", pw_btn:"비밀번호 변경",
+  ai_h:"AI 외부 추출", ai_model:"모델(선택)", ai_key:"API 키 (저장 후 표시 안 됨)", ai_save:"AI 키 저장",
+  page_work:"매핑 대시보드", page_settings:"설정",
+  compare:"비교", cmp_our:"우리 룸 (Merchant — 전체 컬럼)", prep_map:"이걸로 매핑준비",
+  st_vault:"금고", st_open:"열림", st_locked:"잠김", st_list:"리스트", st_yes:"있음", st_no:"없음", st_browser:"브라우저", st_bopen:"열림", st_bclosed:"닫힘",
+  wl_name:"이름", wl_bed:"베드", wl_type:"타입", wl_grade:"등급", wl_view:"뷰", wl_area:"평수", wl_smoke:"흡연",
+  act_start:"▶ 맵핑 시작", act_review:"검토", act_bed:"⚠ 베드충돌 검토", act_ainomatch:"⚠ AI불일치 검토", act_aichecking:"🔍 AI 검증중…", act_hold:"보류(신중)", act_hold2:"보류", act_manual:"수동"
+ },
+ en:{
+  brand_sub:"Room Mapping Platform · Local only", nav_menu:"Menu", nav_work:"🗂 Mapping", nav_settings:"⚙ Settings",
+  nav_clients:"Vendors (Vault)", nav_addvendor:"+ Add vendor", foot_lock:"🔒 Lock",
+  lock_op:"Your name (for logs)", lock_pw:"Master password", lock_pw2:"Confirm password", lock_reset:"Forgot password? Reset vault",
+  cd_title:"🔐 Vendor info", cd_hint:"Login info (encrypted). Editing/deleting requires the console password.",
+  f_name:"Name", f_url:"Login URL", f_id:"ID / Email", f_pw:"Password", f_pw_ph:"Enter only to change", f_cpw:"Console password (edit/delete auth)", f_cpw_ph:"Only when editing/deleting",
+  btn_open:"Open", btn_copy:"Copy", btn_show:"👁 Show", btn_hide:"🙈 Hide", btn_save:"Save", btn_del:"Delete", btn_close:"Close",
+  q_h2:"Work Queue (extract from mapping list)", q_btn:"Build queue",
+  r_h2:"Open Trip.com browser & log in", r_hint:"Click ▶ Open Trip.com browser below; an automation window opens. In it: log in → select group (1210/1311) → Mapping center → Room Mapping, then run ③ Auto Scan below.",
+  r_open:"▶ Open Trip.com browser", r_manual:"Manual/debug:", r_rec:"Recommend current screen ★", r_dump:"Save current HTML",
+  b_h2:"Auto Scan (hotel code → collect room recommendations)", b_offset:"Start at", b_limit:"Max hotels (new)", b_ai:"AI verify while scanning", b_start:"Start auto scan",
+  b_cooldown:"Codes recently empty/mapped are skipped (cooldown).", b_clearcache:"Clear cache (rescan all)",
+  pol_label:"Policy:", pol_99:"Start mapping", pol_95:"Start after AI check", pol_90:"Human review", pol_80:"Hold (caution)", pol_65:"Hold", pol_0:"Manual", pol_bed:"⚠ Bed conflict → review regardless of score. Final [Mapping] click is always human.",
+  s_h2:"Settings (algorithm · password · AI)", s_hint:"Score weights & thresholds. Applies to next recommendations.",
+  s_auto:"Auto-confirm ≥", s_review:"Review ≥", s_cooldownd:"Rescan cooldown (days)", s_save:"Save settings",
+  pw_h:"🔑 Change master password", pw_old:"Current password", pw_new:"New password (4+ chars)", pw_btn:"Change password",
+  ai_h:"AI external extraction", ai_model:"Model (optional)", ai_key:"API key (hidden after save)", ai_save:"Save AI key",
+  page_work:"Mapping dashboard", page_settings:"Settings",
+  compare:"Compare", cmp_our:"Our room (Merchant — all columns)", prep_map:"Prepare mapping",
+  st_vault:"Vault", st_open:"Open", st_locked:"Locked", st_list:"List", st_yes:"Yes", st_no:"No", st_browser:"Browser", st_bopen:"Open", st_bclosed:"Closed",
+  wl_name:"Name", wl_bed:"Bed", wl_type:"Type", wl_grade:"Grade", wl_view:"View", wl_area:"Area", wl_smoke:"Smoke",
+  act_start:"▶ Start mapping", act_review:"Review", act_bed:"⚠ Bed conflict — review", act_ainomatch:"⚠ AI mismatch — review", act_aichecking:"🔍 AI verifying…", act_hold:"Hold (caution)", act_hold2:"Hold", act_manual:"Manual"
+ }
+};
+let LANG = localStorage.getItem('ams_lang') || 'ko';
+function t(k){ return (I18N[LANG]&&I18N[LANG][k]) || I18N.ko[k] || k; }
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent=t(el.getAttribute('data-i18n')); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ el.placeholder=t(el.getAttribute('data-i18n-ph')); });
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('.langBtn').forEach(b=>b.textContent = LANG==='ko'?'EN':'한글');
+}
+function toggleLang(){ LANG = LANG==='ko'?'en':'ko'; localStorage.setItem('ams_lang',LANG); applyI18n(); if(ST&&ST.unlocked) refresh(); }
+const WLABEL = new Proxy({}, { get:(_,k)=> t('wl_'+k) });
+// ===== theme =====
+let THEME = localStorage.getItem('ams_theme') || 'light';
+function applyTheme(){ document.documentElement.setAttribute('data-theme', THEME); document.querySelectorAll('.themeBtn').forEach(b=>b.textContent = THEME==='dark'?'☀️':'🌙'); }
+function toggleTheme(){ THEME = THEME==='dark'?'light':'dark'; localStorage.setItem('ams_theme',THEME); applyTheme(); }
 
 let ST = {};
 async function refresh() {
   const s = await api("/api/status"); ST = s;
-  $("topstat").innerHTML = `<span class="stat">금고 ${s.unlocked?'<b>열림</b>':'잠김'}</span>
-    <span class="stat">리스트 <b>${s.mappingFile?'있음':'없음'}</b></span>
-    <span class="stat">브라우저 ${s.browserOpen?'<b>열림</b>':'닫힘'}</span>`;
+  $("topstat").innerHTML = `<span class="stat">${t('st_vault')} ${s.unlocked?'<b>'+t('st_open')+'</b>':t('st_locked')}</span>
+    <span class="stat">${t('st_list')} <b>${s.mappingFile?t('st_yes'):t('st_no')}</b></span>
+    <span class="stat">${t('st_browser')} ${s.browserOpen?'<b>'+t('st_bopen')+'</b>':t('st_bclosed')}</span>`;
   // lock screen: first-run "create" vs "unlock"
   $("lockScreen").classList.toggle("hide", s.unlocked);
   $("app").classList.toggle("hide", !s.unlocked);
   if (!s.unlocked) {
-    const first = !s.vaultExists;
-    $("lockTitle").textContent = first ? "마스터 비밀번호 만들기" : "잠금 해제";
+    const first = !s.vaultExists; const ko = LANG==='ko';
+    $("lockTitle").textContent = first ? (ko?"마스터 비밀번호 만들기":"Create master password") : (ko?"잠금 해제":"Unlock");
     $("lockHint").innerHTML = first
-      ? "이 PC에서 처음 사용합니다. <b>새 마스터 비밀번호</b>(4자 이상)를 정하세요. 콘텐츠팀 누구나 자신의 PC에서 직접 설정할 수 있습니다."
-      : "마스터 비밀번호로 금고를 엽니다.";
+      ? (ko?"이 PC에서 처음 사용합니다. <b>새 마스터 비밀번호</b>(4자 이상)를 정하세요. 콘텐츠팀 누구나 자신의 PC에서 직접 설정할 수 있습니다.":"First use on this PC. Set a <b>new master password</b> (4+ chars). Each team member sets it up on their own PC.")
+      : (ko?"마스터 비밀번호로 금고를 엽니다.":"Unlock the vault with your master password.");
     $("master2").classList.toggle("hide", !first);
-    $("lockBtn").textContent = first ? "만들고 시작" : "잠금 해제";
+    $("lockBtn").textContent = first ? (ko?"만들고 시작":"Create & start") : (ko?"잠금 해제":"Unlock");
     $("resetBtn").classList.toggle("hide", first); // 잠금 해제 모드에서만 '금고 초기화' 노출
     return;
   }
@@ -332,7 +414,7 @@ function showView(v){
   $("viewSettings").classList.toggle("hide", v!=='settings');
   $("navWork").classList.toggle("active", v==='work');
   $("navSettings").classList.toggle("active", v==='settings');
-  $("pageTitle").textContent = v==='settings' ? '설정' : '매핑 작업';
+  $("pageTitle").textContent = v==='settings' ? t('page_settings') : t('page_work');
   window.scrollTo({top:0,behavior:'smooth'});
 }
 async function lockVault() {
@@ -458,17 +540,17 @@ const mapBtn = (i,label)=>`<button class="primary" style="padding:4px 10px" oncl
 const revBtn = (i,label)=>`<button class="ghost" style="padding:4px 10px" onclick="event.stopPropagation();showCompare(${i})">${label}</button>`;
 function tierAction(r,i){
   const sc=Number(r.best.score)||0; const bedOk = r.best.bedVerified !== false; const ai=r.ai;
-  if(!bedOk) return revBtn(i,'⚠ 베드충돌 검토');
-  if(sc>=99) return mapBtn(i,'▶ 맵핑 시작');
+  if(!bedOk) return revBtn(i,t('act_bed'));
+  if(sc>=99) return mapBtn(i,t('act_start'));
   if(sc>=95){
-    if(r.aiPending) return '<span class="muted">🔍 AI 검증중…</span>';
-    if(ai && ai.same_room==='no') return revBtn(i,'⚠ AI불일치 검토');
-    return mapBtn(i,'▶ 맵핑 시작')+(ai&&ai.same_room==='yes'?' <span class="ok">AI✓</span>':'');
+    if(r.aiPending) return '<span class="muted">'+t('act_aichecking')+'</span>';
+    if(ai && ai.same_room==='no') return revBtn(i,t('act_ainomatch'));
+    return mapBtn(i,t('act_start'))+(ai&&ai.same_room==='yes'?' <span class="ok">AI✓</span>':'');
   }
-  if(sc>=90) return revBtn(i,'검토');
-  if(sc>=80) return '<span class="muted">보류(신중)</span>';
-  if(sc>=65) return '<span class="muted">보류</span>';
-  return '<span class="muted">수동</span>';
+  if(sc>=90) return revBtn(i,t('act_review'));
+  if(sc>=80) return '<span class="muted">'+t('act_hold')+'</span>';
+  if(sc>=65) return '<span class="muted">'+t('act_hold2')+'</span>';
+  return '<span class="muted">'+t('act_manual')+'</span>';
 }
 function renderBatch(b) {
   if (!b) return;
@@ -491,7 +573,7 @@ function renderBatch(b) {
     $("batchTip").classList.remove("hide");
     $("batchWrap").classList.remove("hide");
     $("batchTable").innerHTML = "<tr><th>호텔</th><th>우리 룸(언맵)</th><th>추천 시트립 룸</th><th>점수</th><th>구간</th><th>AI검증</th><th>처리</th></tr>"+
-      BATCH.map((r,i)=>{ const t=scoreTier(r.best.score); return `<tr style="cursor:pointer" onclick="showCompare(${i})"><td>${r.code}</td><td>${esc(r.room||'')}</td><td>${esc(r.best.name||'')} <span class="muted">(${r.best.id||''})</span></td><td><b>${r.best.score}%</b></td><td><span class="pill ${t.cls}">${t.label}</span></td><td>${aiBadge(r)}</td><td onclick="event.stopPropagation()">${tierAction(r,i)}</td></tr>`; }).join("");
+      BATCH.map((r,i)=>{ const tier=scoreTier(r.best.score); return `<tr style="cursor:pointer" onclick="showCompare(${i})"><td>${r.code}</td><td>${esc(r.room||'')}</td><td>${esc(r.best.name||'')} <span class="muted">(${r.best.id||''})</span></td><td><b>${r.best.score}%</b></td><td><span class="pill ${tier.cls}">${tier.label}</span></td><td>${aiBadge(r)}</td><td onclick="event.stopPropagation()">${tierAction(r,i)}</td></tr>`; }).join("");
   }
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -501,22 +583,22 @@ function showCompare(i){
   const cols = r.cols||{}; const mh=cols.merchantHeaders||[], mr=cols.merchantRow||[], xh=cols.masterHeaders||[];
   // 우리 룸 — 시트립 모달의 모든 native 컬럼 그대로
   const ourTbl = mh.length
-    ? `<div class="muted" style="margin:6px 0 4px"><b>우리 룸</b> (Merchant — 전체 컬럼)</div><div class="scroll"><table><tr>${mh.map(h=>`<th>${esc(h)}</th>`).join('')}</tr><tr style="background:#eef3ff">${mh.map((_,k)=>`<td>${esc(mr[k])}</td>`).join('')}</tr></table></div>`
+    ? `<div class="muted" style="margin:6px 0 4px"><b>${t('cmp_our')}</b></div><div class="scroll"><table><tr>${mh.map(h=>`<th>${esc(h)}</th>`).join('')}</tr><tr class="rowhl">${mh.map((_,k)=>`<td>${esc(mr[k])}</td>`).join('')}</tr></table></div>`
     : '<div class="muted">우리 룸 컬럼 없음</div>';
   // 시트립 후보 — 모든 native 컬럼 + AMS 점수/밴드 (점수순)
   const candTbl = xh.length
     ? `<div class="muted" style="margin:12px 0 4px"><b>시트립 후보</b> (Master — 전체 컬럼 + AMS)</div><div class="scroll"><table><tr><th>AMS</th>${xh.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>`
       + (r.candidates||[]).map((c,idx)=>{
           const row=c.row||[]; const star=idx===0?'★ ':'';
-          return `<tr${idx===0?' style="background:#f0fdf4"':''}><td style="white-space:nowrap">${star}<b>${c.score}%</b> <span class="pill ${bandCls(c.band)}">${c.band}</span><br><button class="ghost" style="padding:2px 6px;margin-top:4px;font-size:11px" onclick='prepareMap(${i},${idx})'>이걸로 매핑준비</button></td>${xh.map((_,k)=>`<td>${esc(row[k])}</td>`).join('')}</tr>`;
+          return `<tr${idx===0?' class="rowbest"':''}><td style="white-space:nowrap">${star}<b>${c.score}%</b> <span class="pill ${bandCls(c.band)}">${c.band}</span><br><button class="ghost" style="padding:2px 6px;margin-top:4px;font-size:11px" onclick='prepareMap(${i},${idx})'>${t('prep_map')}</button></td>${xh.map((_,k)=>`<td>${esc(row[k])}</td>`).join('')}</tr>`;
         }).join('')
       + `</table></div>`
     : '<div class="muted">후보 컬럼 없음</div>';
   const hotel = r.hotelName || r.code;
   const links = researchLinks(hotel, r.room);
   const linkHtml = links.map(l=>`<a href="${l[1]}" target="_blank" rel="noopener" class="rlink">🔎 ${esc(l[0])}</a>`).join(" ");
-  const t = scoreTier(r.best?.score);
-  w.innerHTML = `<div class="card" style="border-color:#c7d2fe"><div style="font-size:13px;font-weight:700;margin-bottom:8px">비교: ${esc(r.room)} (${esc(hotel)}) <span class="pill ${t.cls}">${t.label}</span> <span class="pill ${bandCls(r.best?.band)}">${r.best?.band}</span></div>
+  const tier = scoreTier(r.best?.score);
+  w.innerHTML = `<div class="card aibox"><div style="font-size:13px;font-weight:700;margin-bottom:8px">${t('compare')}: ${esc(r.room)} (${esc(hotel)}) <span class="pill ${tier.cls}">${tier.label}</span> <span class="pill ${bandCls(r.best?.band)}">${r.best?.band}</span></div>
     ${ourTbl}${candTbl}
     <div style="margin-top:10px"><div class="muted" style="margin-bottom:6px">🔎 직접 확인용 — 이 호텔/룸을 OTA·구글에서 <b>눈으로</b> 검증 (자동 검증은 오른쪽 🤖 버튼):</div>${linkHtml} <button class="ghost" style="padding:4px 9px" onclick='copyAi(${i})'>AI 비교 프롬프트 복사</button> <button style="padding:4px 9px" onclick='aiResearch(${i})'>🤖 AI 외부 검증 다시</button> <span id="aiMsg${i}" class="muted"></span></div>
     <div id="airOut${i}"></div>
@@ -548,10 +630,10 @@ function renderAi(i, d){
   if(d.error){ out.innerHTML='<div class="card" style="margin-top:8px"><span class="err">AI 오류: '+esc(d.error)+'</span></div>'; return; }
   const rows=[['베드',m.bed,b.bed,ex.bed],['점유',m.occ,b.occ,ex.occupancy],['평수(㎡)',m.area,b.area,ex.size_sqm],['창문/뷰',m.view,b.view,ex.view],['흡연',m.smoke,b.smoke,ex.smoking]];
   const tbl=`<div class="scroll"><table><tr><th>속성</th><th>우리 룸</th><th>시트립 후보 ★</th><th>웹 추출</th></tr>`
-    +rows.map(([k,o,t,w])=>`<tr><td><b>${k}</b></td><td>${esc(o)}</td><td>${esc(t)}</td><td style="${attrDiff(t,w)?'background:#fef2f2;color:#b91c1c;font-weight:700':''}">${esc(w)||'<span class="muted">—</span>'}</td></tr>`).join('')
+    +rows.map(([k,o,tt,w])=>`<tr><td><b>${k}</b></td><td>${esc(o)}</td><td>${esc(tt)}</td><td class="${attrDiff(tt,w)?'mismatch':''}">${esc(w)||'<span class="muted">—</span>'}</td></tr>`).join('')
     +`</table></div>`;
   const sm = d.same_room==='no'?'err':(d.same_room==='yes'?'ok':'');
-  out.innerHTML = `<div class="card" style="margin-top:8px;background:#f8fafc;border-color:#c7d2fe">
+  out.innerHTML = `<div class="card aibox" style="margin-top:8px">
     <b>🤖 AI 외부 검증</b> — 동일여부: <span class="${sm}"><b>${d.same_room||'?'}</b></span> · 신뢰도: <b>${d.confidence||'?'}</b>
     <div style="margin-top:8px">${tbl}</div>
     <div style="margin-top:6px">차이: ${esc(d.key_differences)||'—'}</div>
@@ -628,6 +710,8 @@ function renderResults(results) {
   $("resultTable").innerHTML = "<tr><th>시간</th><th>고객사 룸</th><th>추천 우리 룸</th><th>점수</th><th>밴드</th></tr>"+
     results.slice().reverse().map(r=>`<tr><td>${(r.ts||'').slice(11,19)}</td><td>${r.merchant||''}</td><td>${r.best||''}</td><td>${r.score??''}%</td><td><span class="pill ${cls(r.band)}">${r.band||''}</span></td></tr>`).join("");
 }
+applyTheme();
+applyI18n();
 refresh();
 </script>
 </body>
