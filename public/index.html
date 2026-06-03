@@ -189,6 +189,7 @@
       <span id="batchMsg" class="muted"></span>
     </div>
     <p class="hint" style="margin:6px 0 0">쿨다운 중인(최근에 결과 없던/매핑한) 코드는 자동으로 건너뜁니다. <span id="cacheInfo" class="muted"></span> <button class="ghost" style="padding:2px 8px" onclick="clearCache()">캐시 비우기(전체 재검색)</button></p>
+    <p class="hint" style="margin:8px 0 0;border-top:1px dashed var(--line);padding-top:8px"><b>처리 정책:</b> <span class="pill t99">99%+</span> 맵핑 시작 · <span class="pill t95">95%+</span> AI검증 후 시작 · <span class="pill t90">90%+</span> 사람 검토 · <span class="pill t80">80%+</span> 보류(신중) · <span class="pill t65">65%+</span> 보류 · <span class="pill t0">&lt;65%</span> 수동. <b>⚠ 베드 충돌이면 점수와 무관하게 검토.</b> 최종 [Mapping] 클릭은 항상 사람.</p>
     <div id="batchProg" style="margin-top:10px"></div>
     <p class="muted hide" id="batchTip" style="margin:8px 0 0">행을 클릭하면 우리 룸 ↔ 추천 후보를 모든 컬럼으로 비교합니다.</p>
     <div class="scroll hide" id="batchWrap" style="margin-top:8px"><table id="batchTable"></table></div>
@@ -441,6 +442,23 @@ function aiBadge(r){
   if(r.ai && r.ai.error) return '<span class="muted">AI오류</span>';
   return '<span class="muted">—</span>';
 }
+// 구간별 처리 액션 (정책: 99%+ 시작 / 95%+ AI검증후 시작 / 90%+ 검토 / 그 외 보류·수동 / 베드충돌은 강제 검토)
+const mapBtn = (i,label)=>`<button class="primary" style="padding:4px 10px" onclick="event.stopPropagation();prepareMap(${i},0)">${label}</button>`;
+const revBtn = (i,label)=>`<button class="ghost" style="padding:4px 10px" onclick="event.stopPropagation();showCompare(${i})">${label}</button>`;
+function tierAction(r,i){
+  const sc=Number(r.best.score)||0; const bedOk = r.best.bedVerified !== false; const ai=r.ai;
+  if(!bedOk) return revBtn(i,'⚠ 베드충돌 검토');
+  if(sc>=99) return mapBtn(i,'▶ 맵핑 시작');
+  if(sc>=95){
+    if(r.aiPending) return '<span class="muted">🔍 AI 검증중…</span>';
+    if(ai && ai.same_room==='no') return revBtn(i,'⚠ AI불일치 검토');
+    return mapBtn(i,'▶ 맵핑 시작')+(ai&&ai.same_room==='yes'?' <span class="ok">AI✓</span>':'');
+  }
+  if(sc>=90) return revBtn(i,'검토');
+  if(sc>=80) return '<span class="muted">보류(신중)</span>';
+  if(sc>=65) return '<span class="muted">보류</span>';
+  return '<span class="muted">수동</span>';
+}
 function renderBatch(b) {
   if (!b) return;
   const seen=new Set(); const probs=[];
@@ -459,8 +477,8 @@ function renderBatch(b) {
   if (BATCH.length) {
     $("batchTip").classList.remove("hide");
     $("batchWrap").classList.remove("hide");
-    $("batchTable").innerHTML = "<tr><th>호텔</th><th>우리 룸(언맵)</th><th>추천 시트립 룸</th><th>점수</th><th>구간</th><th>밴드</th><th>AI검증</th></tr>"+
-      BATCH.map((r,i)=>{ const t=scoreTier(r.best.score); return `<tr style="cursor:pointer" onclick="showCompare(${i})"><td>${r.code}</td><td>${esc(r.room||'')}</td><td>${esc(r.best.name||'')} <span class="muted">(${r.best.id||''})</span></td><td><b>${r.best.score}%</b></td><td><span class="pill ${t.cls}">${t.label}</span></td><td><span class="pill ${bandCls(r.best.band)}">${r.best.band}</span></td><td>${aiBadge(r)}</td></tr>`; }).join("");
+    $("batchTable").innerHTML = "<tr><th>호텔</th><th>우리 룸(언맵)</th><th>추천 시트립 룸</th><th>점수</th><th>구간</th><th>AI검증</th><th>처리</th></tr>"+
+      BATCH.map((r,i)=>{ const t=scoreTier(r.best.score); return `<tr style="cursor:pointer" onclick="showCompare(${i})"><td>${r.code}</td><td>${esc(r.room||'')}</td><td>${esc(r.best.name||'')} <span class="muted">(${r.best.id||''})</span></td><td><b>${r.best.score}%</b></td><td><span class="pill ${t.cls}">${t.label}</span></td><td>${aiBadge(r)}</td><td onclick="event.stopPropagation()">${tierAction(r,i)}</td></tr>`; }).join("");
   }
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -538,7 +556,7 @@ async function aiResearch(i){
 async function prepareMap(i, cidx){
   const r=BATCH[i]; const c=(r.candidates||[])[cidx]; if(!c) return;
   if(!confirm(`시트립 창에서 이 후보를 "선택" 상태로 만들까요?\n\n호텔 ${r.code} · 우리 룸 "${r.room||''}"\n→ 후보: ${c.name||c.id} (${c.score}%, ${c.band})\n\n⚠ 최종 [Mapping] 확정 버튼은 시트립 창에서 직접 누르셔야 합니다.`)) return;
-  const msg=$("aiMsg"+i); msg.innerHTML='<span class="muted">시트립에서 매핑 준비 중… (호텔 재조회 → 모달 열기 → 후보 선택, 5~15초)</span>';
+  const msg=$("aiMsg"+i)||$("batchMsg"); msg.innerHTML='<span class="muted">시트립에서 매핑 준비 중… ('+r.code+' 재조회 → 모달 → 후보 선택, 5~15초)</span>';
   const res=await api("/api/map/prepare",{code:r.code, basicRoomId:r.basicRoomId, roomIndex:r.roomIndex, masterId:c.id, masterName:c.name});
   msg.innerHTML = res.ok
     ? '<span class="ok">✅ 시트립 창에 후보가 <b>녹색</b>으로 선택됨 — 그 창에서 <b>[Mapping]</b> 버튼을 눌러 최종 확정하세요.</span>'
