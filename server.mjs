@@ -16,7 +16,7 @@ import { aiResearchRoom } from "./lib/ai.mjs";
 import { audit } from "./lib/audit.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = 5234;
+const PORT = Number(process.env.PORT) || 5234;
 
 const state = {
   master: null,
