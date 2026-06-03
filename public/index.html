@@ -224,7 +224,8 @@
         <button class="ghost" onclick="bulkStop()">중단</button>
       </div>
     </div>
-    <p class="muted hide" id="batchTip" style="margin:8px 0 0">행을 클릭하면 우리 룸 ↔ 추천 후보를 모든 컬럼으로 비교합니다.</p>
+    <p class="muted hide" id="batchTip" style="margin:8px 0 0">행을 클릭하면 우리 룸 ↔ 추천 후보를 모든 컬럼으로 비교합니다. (점수순 정렬 · 위 칩으로 구간 필터)</p>
+    <div id="batchFilter" style="margin:8px 0"></div>
     <div class="scroll hide" id="batchWrap" style="margin-top:8px"><table id="batchTable"></table></div>
     <div id="compareWrap" class="hide" style="margin-top:12px"></div>
   </div>
@@ -596,13 +597,30 @@ function renderBatch(b) {
     + (probs.length?`<div class="muted" style="margin-top:6px">⚠ ${probs.slice(0,8).join(' / ')}${probs.length>8?` 외 ${probs.length-8}`:''}</div>`:'');
   BATCH = recs;
   const n99 = BATCH.filter(eligible99).length;
-  $("bulk99Bar").innerHTML = n99 ? `<button class="primary" onclick="startBulk99()">▶ 99%+ 일괄 매핑 준비 (${n99}건)</button> <span class="muted">한 건씩 시트립에 띄움 · 각 건은 직접 [Mapping] 확정</span>` : '';
+  $("bulk99Bar").innerHTML = n99 ? `<button class="primary" onclick="startBulk99()">▶ 99%+ ${LANG==='ko'?'일괄 매핑 준비':'bulk mapping'} (${n99})</button> <span class="muted">${LANG==='ko'?'한 건씩 시트립에 띄움 · 각 건은 직접 [Mapping] 확정':'one at a time in Trip.com · confirm [Mapping] yourself'}</span>` : '';
   if (BATCH.length) {
     $("batchTip").classList.remove("hide");
     $("batchWrap").classList.remove("hide");
-    $("batchTable").innerHTML = "<tr><th>호텔</th><th>우리 룸(언맵)</th><th>추천 시트립 룸</th><th>점수</th><th>구간</th><th>AI검증</th><th>처리</th></tr>"+
-      BATCH.map((r,i)=>{ const tier=scoreTier(r.best.score); return `<tr style="cursor:pointer" onclick="showCompare(${i})"><td>${r.code}</td><td>${esc(r.room||'')}</td><td>${esc(r.best.name||'')} <span class="muted">(${r.best.id||''})</span></td><td><b>${r.best.score}%</b></td><td><span class="pill ${tier.cls}">${tier.label}</span></td><td>${aiBadge(r)}</td><td onclick="event.stopPropagation()">${tierAction(r,i)}</td></tr>`; }).join("");
-  }
+    renderFilterChips();
+    renderBatchTable();
+  } else { $("batchFilter").innerHTML=''; }
+}
+let tierFilter='all';
+const TIER_ORDER=['t99','t95','t90','t80','t65','t0'];
+const TIER_LABEL={t99:'99%+',t95:'95%+',t90:'90%+',t80:'80%+',t65:'65%+',t0:'<65%'};
+function renderFilterChips(){
+  const counts={}; BATCH.forEach(r=>{const c=scoreTier(r.best.score).cls; counts[c]=(counts[c]||0)+1;});
+  let chips=`<button onclick="setTierFilter('all')" class="pill ${tierFilter==='all'?'auto':''}" style="cursor:pointer;border:1px solid var(--line);padding:4px 10px">${LANG==='ko'?'전체':'All'} ${BATCH.length}</button> `;
+  chips += TIER_ORDER.filter(c=>counts[c]).map(c=>`<button onclick="setTierFilter('${c}')" class="pill ${c}" style="cursor:pointer;padding:4px 10px;opacity:${(tierFilter==='all'||tierFilter===c)?1:.4}">${TIER_LABEL[c]} ${counts[c]}</button>`).join(' ');
+  $("batchFilter").innerHTML = chips;
+}
+function setTierFilter(f){ tierFilter=f; renderFilterChips(); renderBatchTable(); }
+function renderBatchTable(){
+  const rows = BATCH.map((r,i)=>({r,i}))
+    .filter(x=> tierFilter==='all' || scoreTier(x.r.best.score).cls===tierFilter)
+    .sort((a,b)=>(Number(b.r.best.score)||0)-(Number(a.r.best.score)||0));
+  $("batchTable").innerHTML = "<tr><th>호텔</th><th>우리 룸(언맵)</th><th>추천 시트립 룸</th><th>점수</th><th>구간</th><th>AI검증</th><th>처리</th></tr>"+
+    rows.map(({r,i})=>{ const tier=scoreTier(r.best.score); return `<tr style="cursor:pointer" onclick="showCompare(${i})"><td>${r.code}</td><td>${esc(r.room||'')}</td><td>${esc(r.best.name||'')} <span class="muted">(${r.best.id||''})</span></td><td><b>${r.best.score}%</b></td><td><span class="pill ${tier.cls}">${tier.label}</span></td><td>${aiBadge(r)}</td><td onclick="event.stopPropagation()">${tierAction(r,i)}</td></tr>`; }).join("");
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function showCompare(i){
