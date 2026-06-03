@@ -6,7 +6,7 @@ import { exec } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { chromium } from "playwright";
-import { vaultExists, loadVault, saveVault, emptyVault } from "./lib/vault.mjs";
+import { vaultExists, loadVault, saveVault, emptyVault, deleteVault } from "./lib/vault.mjs";
 import { findMappingFile, listChannels, buildQueue } from "./lib/queuelib.mjs";
 import { loadSettings, saveSettings } from "./lib/settings.mjs";
 import { loadCache, saveCache, clearCache, markScanned, coolingDown } from "./lib/scancache.mjs";
@@ -237,6 +237,13 @@ const server = http.createServer(async (req, res) => {
       if (!newMaster || String(newMaster).length < 4) return json(res, 400, { error: "새 비밀번호는 4자 이상이어야 합니다." });
       saveVault(newMaster, state.vault); state.master = newMaster;
       audit({ operator: state.operator, action: "MASTER_CHANGE" });
+      return json(res, 200, { ok: true });
+    }
+    if (req.method === "POST" && url.pathname === "/api/vault/reset") {
+      // Forgot-password path: only allowed while locked. Deletes the vault.
+      if (state.vault) return json(res, 400, { error: "이미 잠금 해제됨 — 비밀번호 변경은 ④ 설정에서 하세요." });
+      deleteVault();
+      audit({ action: "VAULT_RESET" });
       return json(res, 200, { ok: true });
     }
     if (req.method === "POST" && url.pathname === "/api/lock") {

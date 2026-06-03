@@ -97,6 +97,7 @@
     <input id="master2" type="password" placeholder="비밀번호 확인" class="hide" onkeydown="if(event.key==='Enter')unlock()" />
     <button class="primary big" id="lockBtn" onclick="unlock()" style="width:100%;margin-top:8px">잠금 해제</button>
     <div id="lockMsg" class="muted" style="margin-top:8px"></div>
+    <button class="hdrbtn hide" id="resetBtn" onclick="resetVault()" style="margin-top:14px">비밀번호를 잊으셨나요? 금고 초기화</button>
   </div>
 </div>
 
@@ -248,6 +249,7 @@ async function refresh() {
       : "마스터 비밀번호로 금고를 엽니다.";
     $("master2").classList.toggle("hide", !first);
     $("lockBtn").textContent = first ? "만들고 시작" : "잠금 해제";
+    $("resetBtn").classList.toggle("hide", first); // 잠금 해제 모드에서만 '금고 초기화' 노출
     return;
   }
   $("navOperator").textContent = s.operator ? `👤 ${s.operator}` : "";
@@ -292,6 +294,12 @@ async function unlock() {
 async function lockVault() {
   if (!confirm("금고를 잠글까요? (다시 쓰려면 마스터 비밀번호로 잠금 해제)")) return;
   await api("/api/lock", {}); refresh();
+}
+async function resetVault() {
+  if (!confirm("⚠ 금고를 초기화합니다.\n\n저장된 업체 로그인 정보가 모두 삭제되고, 새 마스터 비밀번호를 정하게 됩니다.\n(설정·가중치는 유지됩니다.)\n\n계속할까요?")) return;
+  const r = await api("/api/vault/reset", {});
+  if (r.ok){ $("lockMsg").innerHTML='<span class="ok">초기화됨 — 새 마스터 비밀번호를 정하세요.</span>'; $("master").value=$("master2").value=""; refresh(); }
+  else alert(r.error||"실패");
 }
 async function changeMaster() {
   const oldM=$("oldMaster").value, newM=$("newMaster").value;
