@@ -267,6 +267,18 @@
       </div>
     </div>
   </div>
+  <!-- AI 사용량·추정 비용 카드 -->
+  <div class="card" id="costCard">
+    <h2>💳 <span data-i18n="cost_h">AI 사용량 · 추정 비용</span></h2>
+    <p class="hint" data-i18n="cost_hint">이 도구가 실제로 쓴 토큰을 집계한 값입니다(추정). 실제 잔액·청구는 공급자 콘솔에서 확인하세요.</p>
+    <div id="costBody" class="row" style="gap:10px"></div>
+    <div class="row" style="margin-top:12px">
+      <a class="rlink" href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener">🔗 Anthropic Console (잔액·청구)</a>
+      <a class="rlink" href="https://console.anthropic.com/settings/limits" target="_blank" rel="noopener">🔗 지출 한도 설정</a>
+      <button class="ghost" onclick="resetUsage()" data-i18n="cost_reset">사용량 초기화</button>
+      <span id="costMsg" class="muted"></span>
+    </div>
+  </div>
   </div><!-- /viewSettings -->
   </main>
 </div><!-- /app -->
@@ -299,7 +311,8 @@ const I18N = {
   compare:"비교", cmp_our:"우리 룸 (Merchant — 전체 컬럼)", prep_map:"이걸로 매핑준비",
   st_vault:"금고", st_open:"열림", st_locked:"잠김", st_list:"리스트", st_yes:"있음", st_no:"없음", st_browser:"브라우저", st_bopen:"열림", st_bclosed:"닫힘",
   wl_name:"이름", wl_bed:"베드", wl_type:"타입", wl_grade:"등급", wl_view:"뷰", wl_area:"평수", wl_smoke:"흡연",
-  act_start:"▶ 맵핑 시작", act_review:"검토", act_bed:"⚠ 베드충돌 검토", act_ainomatch:"⚠ AI불일치 검토", act_aichecking:"🔍 AI 검증중…", act_hold:"보류(신중)", act_hold2:"보류", act_manual:"수동"
+  act_start:"▶ 맵핑 시작", act_review:"검토", act_bed:"⚠ 베드충돌 검토", act_ainomatch:"⚠ AI불일치 검토", act_aichecking:"🔍 AI 검증중…", act_hold:"보류(신중)", act_hold2:"보류", act_manual:"수동",
+  cost_h:"AI 사용량 · 추정 비용", cost_hint:"이 도구가 실제로 쓴 토큰을 집계한 값입니다(추정). 실제 잔액·청구는 공급자 콘솔에서 확인하세요.", cost_reset:"사용량 초기화", cost_calls:"호출", cost_in:"입력 토큰", cost_out:"출력 토큰", cost_est:"추정 비용", cost_confirm:"AI 사용량 집계를 초기화할까요?"
  },
  en:{
   brand_sub:"Room Mapping Platform · Local only", nav_menu:"Menu", nav_work:"🗂 Mapping", nav_settings:"⚙ Settings",
@@ -322,7 +335,8 @@ const I18N = {
   compare:"Compare", cmp_our:"Our room (Merchant — all columns)", prep_map:"Prepare mapping",
   st_vault:"Vault", st_open:"Open", st_locked:"Locked", st_list:"List", st_yes:"Yes", st_no:"No", st_browser:"Browser", st_bopen:"Open", st_bclosed:"Closed",
   wl_name:"Name", wl_bed:"Bed", wl_type:"Type", wl_grade:"Grade", wl_view:"View", wl_area:"Area", wl_smoke:"Smoke",
-  act_start:"▶ Start mapping", act_review:"Review", act_bed:"⚠ Bed conflict — review", act_ainomatch:"⚠ AI mismatch — review", act_aichecking:"🔍 AI verifying…", act_hold:"Hold (caution)", act_hold2:"Hold", act_manual:"Manual"
+  act_start:"▶ Start mapping", act_review:"Review", act_bed:"⚠ Bed conflict — review", act_ainomatch:"⚠ AI mismatch — review", act_aichecking:"🔍 AI verifying…", act_hold:"Hold (caution)", act_hold2:"Hold", act_manual:"Manual",
+  cost_h:"AI usage · estimated cost", cost_hint:"Counted from tokens this tool actually spent (estimate). Check the real balance/billing in the provider console.", cost_reset:"Reset usage", cost_calls:"Calls", cost_in:"Input tokens", cost_out:"Output tokens", cost_est:"Est. cost", cost_confirm:"Reset the AI usage counter?"
  }
 };
 let LANG = localStorage.getItem('ams_lang') || 'ko';
@@ -383,6 +397,14 @@ async function refresh() {
   $("cooldownDays").value = s.settings.cooldownDays;
   if ($("cacheInfo")) $("cacheInfo").textContent = `(쿨다운 기억 중: ${s.cacheCount||0}개 · ${s.settings.cooldownDays}일)`;
   $("aiState").innerHTML = s.aiConfigured ? '<span class="ok">설정됨 ('+s.aiProvider+')</span>' : '미설정';
+  // AI 사용량·추정 비용 카드
+  const u = s.aiUsage || {calls:0,inputTokens:0,outputTokens:0,costUSD:0};
+  const krw = Math.round((u.costUSD||0)*1380);
+  $("costBody").innerHTML =
+    `<span class="stat">${t('cost_calls')} <b>${u.calls||0}</b></span>`+
+    `<span class="stat">${t('cost_in')} <b>${(u.inputTokens||0).toLocaleString()}</b></span>`+
+    `<span class="stat">${t('cost_out')} <b>${(u.outputTokens||0).toLocaleString()}</b></span>`+
+    `<span class="stat">${t('cost_est')} <b>$${(u.costUSD||0).toFixed(4)}</b> <span class="muted">(≈ ₩${krw.toLocaleString()})</span></span>`;
   if (s.aiProvider) $("aiProvider").value = s.aiProvider;
   $("weights").innerHTML = WK.map(k=>`<label class="w">${WLABEL[k]} <input type="range" min="0" max="100" id="w_${k}" value="${s.settings.weights[k]}" oninput="this.nextElementSibling.textContent=this.value"/><span style="width:28px;text-align:right">${s.settings.weights[k]}</span></label>`).join("");
 
@@ -696,6 +718,11 @@ async function saveSettings() {
   const weights = {}; WK.forEach(k=>weights[k]=Number($("w_"+k).value));
   await api("/api/settings", { autoThreshold:Number($("autoTh").value), reviewThreshold:Number($("reviewTh").value), cooldownDays:Number($("cooldownDays").value), weights });
   $("setMsg").innerHTML = '<span class="ok">저장됨</span>'; setTimeout(()=>$("setMsg").textContent="",1500); refresh();
+}
+async function resetUsage(){
+  if(!confirm(t('cost_confirm'))) return;
+  const r=await api("/api/ai/usage/reset",{});
+  if(r.ok){ $("costMsg").innerHTML='<span class="ok">OK</span>'; refresh(); } else $("costMsg").innerHTML='<span class="err">'+(r.error||'fail')+'</span>';
 }
 async function clearCache(){
   if(!confirm("스캔 캐시를 모두 비웁니다 — 다음 스캔에서 모든 호텔코드를 다시 검색합니다. 진행할까요?")) return;

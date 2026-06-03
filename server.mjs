@@ -10,6 +10,7 @@ import { vaultExists, loadVault, saveVault, emptyVault, deleteVault } from "./li
 import { findMappingFile, listChannels, buildQueue } from "./lib/queuelib.mjs";
 import { loadSettings, saveSettings } from "./lib/settings.mjs";
 import { loadCache, saveCache, clearCache, markScanned, coolingDown } from "./lib/scancache.mjs";
+import { loadUsage, resetUsage } from "./lib/usage.mjs";
 import { readPage, analyze, highlight, dumpPage } from "./lib/recommend.mjs";
 import * as ctrip from "./lib/ctrip.mjs";
 import { aiResearchRoom } from "./lib/ai.mjs";
@@ -190,6 +191,7 @@ const server = http.createServer(async (req, res) => {
         queue: state.queue,
         settings: loadSettings(),
         cacheCount: Object.keys(loadCache()).length,
+        aiUsage: loadUsage(),
         browserOpen: !!state.browser,
         activeClient: state.activeClient?.name ?? null,
         results: state.results.slice(-50),
@@ -231,6 +233,11 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         return json(res, 502, { error: String(e?.message || e) });
       }
+    }
+    if (req.method === "POST" && url.pathname === "/api/ai/usage/reset") {
+      resetUsage();
+      audit({ operator: state.operator, action: "AI_USAGE_RESET" });
+      return json(res, 200, { ok: true });
     }
     if (req.method === "POST" && url.pathname === "/api/cache/clear") {
       clearCache();
