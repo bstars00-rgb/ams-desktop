@@ -73,6 +73,7 @@
   th { color:#64748b; font-weight:600; background:#f8fafc; }
   .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
   .auto{background:#dcfce7;color:#15803d} .review{background:#fef3c7;color:#b45309} .nomatch{background:#fee2e2;color:#b91c1c}
+  .t99{background:#064e3b;color:#fff} .t95{background:#15803d;color:#fff} .t90{background:#4d7c0f;color:#fff} .t80{background:#b45309;color:#fff} .t65{background:#c2410c;color:#fff} .t0{background:#b91c1c;color:#fff}
   .stat { display:inline-flex; gap:6px; align-items:center; background:#fff; border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:12px; }
   .stat b { color:var(--b2); }
   .muted { color:#94a3b8; font-size:12px; }
@@ -183,7 +184,8 @@
     <div class="row">
       <label class="muted">시작 위치 <input id="batchOffset" type="number" value="0" min="0" style="width:72px"/></label>
       <label class="muted">최대 호텔 수(신규) <input id="batchLimit" type="number" value="20" min="1" max="50" style="width:64px"/></label>
-      <button onclick="startBatch()">자동 스캔 시작</button>
+      <label class="muted" title="스캔과 동시에 AI가 웹에서 룸을 검증 — 클릭하면 결과가 이미 준비됨"><input type="checkbox" id="batchAI" checked style="vertical-align:middle"/> 스캔하며 AI 검증</label>
+      <button class="primary" onclick="startBatch()">자동 스캔 시작</button>
       <span id="batchMsg" class="muted"></span>
     </div>
     <p class="hint" style="margin:6px 0 0">쿨다운 중인(최근에 결과 없던/매핑한) 코드는 자동으로 건너뜁니다. <span id="cacheInfo" class="muted"></span> <button class="ghost" style="padding:2px 8px" onclick="clearCache()">캐시 비우기(전체 재검색)</button></p>
@@ -267,7 +269,7 @@ async function refresh() {
   $("navOperator").textContent = s.operator ? `👤 ${s.operator}` : "";
 
   renderBatch(s.batch);
-  if (s.batch && s.batch.running) setTimeout(refresh, 2000); // poll while scanning
+  if (s.batch && (s.batch.running || s.batch.aiPending > 0)) setTimeout(refresh, 2000); // poll while scanning or AI verifying
 
   // 사이드바: 업체 목록 (클릭 → 상세)
   $("clientNav").innerHTML = s.clients.length
@@ -419,26 +421,46 @@ async function recommend() {
 }
 async function startBatch() {
   $("batchMsg").textContent = "시작 중…";
-  const r = await api("/api/batch/start", { limit: Number($("batchLimit").value), offset: Number($("batchOffset").value) });
-  $("batchMsg").textContent = r.ok ? "스캔 중… (룸마다 모달을 자동으로 엽니다)" : (r.error||"실패");
+  const r = await api("/api/batch/start", { limit: Number($("batchLimit").value), offset: Number($("batchOffset").value), autoAI: $("batchAI").checked });
+  $("batchMsg").textContent = r.ok ? "스캔 중… (룸마다 모달 자동 + AI 병렬 검증)" : (r.error||"실패");
   refresh();
 }
 let BATCH = [];
 const bandCls = bd => bd==="AUTO"?"auto":bd==="REVIEW"?"review":"nomatch";
+// 점수 구간 세분화 (오토맵핑/리뷰를 촘촘히)
+function scoreTier(s){ s=Number(s)||0;
+  if(s>=99) return {label:'99%+', cls:'t99'};
+  if(s>=95) return {label:'95%+', cls:'t95'};
+  if(s>=90) return {label:'90%+', cls:'t90'};
+  if(s>=80) return {label:'80%+', cls:'t80'};
+  if(s>=65) return {label:'65%+', cls:'t65'};
+  return {label:'<65%', cls:'t0'}; }
+function aiBadge(r){
+  if(r.ai && !r.ai.error){ const v=r.ai.same_room; return v==='yes'?'<span class="ok">✓동일</span>':v==='no'?'<span class="err">✗불일치</span>':'<span class="muted">? 불확실</span>'; }
+  if(r.aiPending) return '<span class="muted">⏳ 검증중</span>';
+  if(r.ai && r.ai.error) return '<span class="muted">AI오류</span>';
+  return '<span class="muted">—</span>';
+}
 function renderBatch(b) {
   if (!b) return;
-  // 코드별로 한 줄만 (중복 제거)
   const seen=new Set(); const probs=[];
   (b.results||[]).filter(r=>!r.best).forEach(r=>{ if(seen.has(r.code))return; seen.add(r.code); probs.push(`${r.code}: ${r.error||r.note||'후보 없음'}`); });
+  const recs=(b.results||[]).filter(r=>r.best);
+  // 티어 분포 요약
+  const buckets={'t99':0,'t95':0,'t90':0,'t80':0,'t65':0,'t0':0};
+  recs.forEach(r=>buckets[scoreTier(r.best.score).cls]++);
+  const tierSummary = recs.length ? ` <span class="stat">99%+ <b>${buckets.t99}</b></span> <span class="stat">95%+ <b>${buckets.t95}</b></span> <span class="stat">90%+ <b>${buckets.t90}</b></span> <span class="stat">80%+ <b>${buckets.t80}</b></span> <span class="stat">65%+ <b>${buckets.t65}</b></span> <span class="stat">&lt;65% <b>${buckets.t0}</b></span>` : '';
+  const aiInfo = b.aiOn ? ` <span class="stat">AI ${b.aiPending>0?`<b>${b.aiPending}</b> 검증중`:'<b>완료</b>'}</span>` : '';
   $("batchProg").innerHTML = (b.error ? `<span class="err">${b.error}</span><br>` : '')
-    + `<span class="stat">진행 <b>${b.done}/${b.total}</b></span> ${b.running?`<span class="muted">처리 중: ${b.current||''}</span>`:'<span class="ok">완료</span>'} <span class="stat">추천 <b>${(b.results||[]).filter(r=>r.best).length}</b></span>${b.skipped?` <span class="stat">건너뜀(쿨다운) <b>${b.skipped}</b></span>`:''}`
+    + `<span class="stat">진행 <b>${b.done}/${b.total}</b></span> ${b.running?`<span class="muted">처리 중: ${b.current||''}</span>`:'<span class="ok">완료</span>'} <span class="stat">추천 <b>${recs.length}</b></span>${b.skipped?` <span class="stat">건너뜀(쿨다운) <b>${b.skipped}</b></span>`:''}${aiInfo}`
+    + (tierSummary?`<div style="margin-top:8px">${tierSummary}</div>`:'')
     + (probs.length?`<div class="muted" style="margin-top:6px">⚠ ${probs.slice(0,8).join(' / ')}${probs.length>8?` 외 ${probs.length-8}`:''}</div>`:'');
-  BATCH = (b.results||[]).filter(r=>r.best);
+  BATCH = recs;
   if (BATCH.length) {
     $("batchTip").classList.remove("hide");
     $("batchWrap").classList.remove("hide");
-    $("batchTable").innerHTML = "<tr><th>호텔</th><th>우리 룸(언맵)</th><th>추천 시트립 룸</th><th>점수</th><th>밴드</th></tr>"+
-      BATCH.map((r,i)=>`<tr style="cursor:pointer" onclick="showCompare(${i})"><td>${r.code}</td><td>${r.room||''}</td><td>${r.best.name||''} <span class="muted">(${r.best.id||''})</span></td><td>${r.best.score}%</td><td><span class="pill ${bandCls(r.best.band)}">${r.best.band}</span></td></tr>`).join("");
+    $("batchTable").innerHTML = "<tr><th>호텔</th><th>우리 룸(언맵)</th><th>추천 시트립 룸</th><th>점수</th><th>구간</th><th>밴드</th><th>AI검증</th></tr>"+
+      BATCH.map((r,i)=>{ const t=scoreTier(r.best.score); return `<tr style="cursor:pointer" onclick="showCompare(${i})"><td>${r.code}</td><td>${esc(r.room||'')}</td><td>${esc(r.best.name||'')} <span class="muted">(${r.best.id||''})</span></td><td><b>${r.best.score}%</b></td><td><span class="pill ${t.cls}">${t.label}</span></td><td><span class="pill ${bandCls(r.best.band)}">${r.best.band}</span></td><td>${aiBadge(r)}</td></tr>`; }).join("");
   }
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -462,11 +484,15 @@ function showCompare(i){
   const hotel = r.hotelName || r.code;
   const links = researchLinks(hotel, r.room);
   const linkHtml = links.map(l=>`<a href="${l[1]}" target="_blank" rel="noopener" class="rlink">🔎 ${esc(l[0])}</a>`).join(" ");
-  w.innerHTML = `<div class="card" style="border-color:#c7d2fe"><div style="font-size:13px;font-weight:700;margin-bottom:8px">비교: ${esc(r.room)} (${esc(hotel)})</div>
+  const t = scoreTier(r.best?.score);
+  w.innerHTML = `<div class="card" style="border-color:#c7d2fe"><div style="font-size:13px;font-weight:700;margin-bottom:8px">비교: ${esc(r.room)} (${esc(hotel)}) <span class="pill ${t.cls}">${t.label}</span> <span class="pill ${bandCls(r.best?.band)}">${r.best?.band}</span></div>
     ${ourTbl}${candTbl}
-    <div style="margin-top:10px"><div class="muted" style="margin-bottom:6px">🔎 직접 확인용 — 이 호텔/룸을 OTA·구글에서 <b>눈으로</b> 검증 (자동 검증은 오른쪽 🤖 버튼):</div>${linkHtml} <button class="ghost" style="padding:4px 9px" onclick='copyAi(${i})'>AI 비교 프롬프트 복사</button> <button style="padding:4px 9px" onclick='aiResearch(${i})'>🤖 AI 외부 검증</button> <span id="aiMsg${i}" class="muted"></span></div>
+    <div style="margin-top:10px"><div class="muted" style="margin-bottom:6px">🔎 직접 확인용 — 이 호텔/룸을 OTA·구글에서 <b>눈으로</b> 검증 (자동 검증은 오른쪽 🤖 버튼):</div>${linkHtml} <button class="ghost" style="padding:4px 9px" onclick='copyAi(${i})'>AI 비교 프롬프트 복사</button> <button style="padding:4px 9px" onclick='aiResearch(${i})'>🤖 AI 외부 검증 다시</button> <span id="aiMsg${i}" class="muted"></span></div>
     <div id="airOut${i}"></div>
     <p class="muted" style="margin-top:8px">★ = AMS 1순위. 위 두 표는 시트립 모달의 <b>모든 컬럼</b>을 그대로 가져온 것입니다.</p></div>`;
+  // 스캔 중 병렬로 미리 받아둔 AI 결과가 있으면 즉시 표시
+  if (r.ai) renderAi(i, r.ai);
+  else if (r.aiPending) $("airOut"+i).innerHTML='<div class="muted" style="margin-top:8px">🤖 AI 외부검증 진행 중… (스캔과 병렬, 잠시 후 자동 표시)</div>';
   w.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 function gsearch(q){ return "https://www.google.com/search?q="+encodeURIComponent(q.replace(/\s+/g," ").trim()); }
@@ -485,25 +511,29 @@ async function saveAiKey(){
   $("aiKey").value=""; refresh();
 }
 function attrDiff(a,b){ a=String(a==null?'':a).toLowerCase().trim(); b=String(b==null?'':b).toLowerCase().trim(); return a&&b&&!a.includes(b)&&!b.includes(a); }
-async function aiResearch(i){
-  const r=BATCH[i]; const m=r.merchant||{}, b=r.best||{};
-  $("aiMsg"+i).textContent="AI 조회 중… (웹 검색+추출, 10~20초)";
-  const res=await api("/api/ai/research",{hotel:r.hotelName||r.code, room:r.room, ourAttrs:r.merchant, candidateAttrs:r.best});
-  $("aiMsg"+i).textContent="";
-  if(!res.ok){ $("airOut"+i).innerHTML='<div class="card" style="margin-top:8px"><span class="err">'+(res.error||'실패')+'</span></div>'; return; }
-  const d=res.result||{}; const ex=d.extracted||{};
-  // 3열 통합 비교: 우리 룸 / 시트립 후보 / 웹 추출 (웹값이 시트립 후보와 다르면 빨강)
+function renderAi(i, d){
+  const r=BATCH[i]; if(!r||!d) return; const m=r.merchant||{}, b=r.best||{}; const ex=d.extracted||{};
+  const out=$("airOut"+i); if(!out) return;
+  if(d.error){ out.innerHTML='<div class="card" style="margin-top:8px"><span class="err">AI 오류: '+esc(d.error)+'</span></div>'; return; }
   const rows=[['베드',m.bed,b.bed,ex.bed],['점유',m.occ,b.occ,ex.occupancy],['평수(㎡)',m.area,b.area,ex.size_sqm],['창문/뷰',m.view,b.view,ex.view],['흡연',m.smoke,b.smoke,ex.smoking]];
   const tbl=`<div class="scroll"><table><tr><th>속성</th><th>우리 룸</th><th>시트립 후보 ★</th><th>웹 추출</th></tr>`
     +rows.map(([k,o,t,w])=>`<tr><td><b>${k}</b></td><td>${esc(o)}</td><td>${esc(t)}</td><td style="${attrDiff(t,w)?'background:#fef2f2;color:#b91c1c;font-weight:700':''}">${esc(w)||'<span class="muted">—</span>'}</td></tr>`).join('')
     +`</table></div>`;
   const sm = d.same_room==='no'?'err':(d.same_room==='yes'?'ok':'');
-  $("airOut"+i).innerHTML = `<div class="card" style="margin-top:8px;background:#f8fafc;border-color:#c7d2fe">
+  out.innerHTML = `<div class="card" style="margin-top:8px;background:#f8fafc;border-color:#c7d2fe">
     <b>🤖 AI 외부 검증</b> — 동일여부: <span class="${sm}"><b>${d.same_room||'?'}</b></span> · 신뢰도: <b>${d.confidence||'?'}</b>
     <div style="margin-top:8px">${tbl}</div>
     <div style="margin-top:6px">차이: ${esc(d.key_differences)||'—'}</div>
     <div>권장: ${esc(d.recommended_action)||'—'}</div>
     ${d.sourceUrl?`<div style="margin-top:4px"><a href="${esc(d.sourceUrl)}" target="_blank" rel="noopener">출처 페이지</a></div>`:'<div class="muted" style="margin-top:4px">웹 출처를 못 찾음 — 우리/시트립 속성만으로 판단</div>'}</div>`;
+}
+async function aiResearch(i){
+  const r=BATCH[i];
+  $("aiMsg"+i).textContent="AI 조회 중… (웹 검색+추출, 10~20초)";
+  const res=await api("/api/ai/research",{hotel:r.hotelName||r.code, room:r.room, ourAttrs:r.merchant, candidateAttrs:r.best});
+  $("aiMsg"+i).textContent="";
+  if(!res.ok){ $("airOut"+i).innerHTML='<div class="card" style="margin-top:8px"><span class="err">'+(res.error||'실패')+'</span></div>'; return; }
+  r.ai = res.result; renderAi(i, res.result);
 }
 async function prepareMap(i, cidx){
   const r=BATCH[i]; const c=(r.candidates||[])[cidx]; if(!c) return;

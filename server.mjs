@@ -33,7 +33,7 @@ const state = {
 
 // Auto-scan: for each hotel code in codes.txt, Query → open each unmapped room's
 // modal → AMS recommend → collect. Never clicks the final "Mapping" (human decides).
-async function runBatch(limit, offset = 0) {
+async function runBatch(limit, offset = 0, autoAI = false) {
   if (!fs.existsSync("codes.txt")) { state.batch = { running: false, error: "codes.txt 없음 — ② 작업 큐를 먼저 만드세요." }; return; }
   const allCodes = fs.readFileSync("codes.txt", "utf8").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
   const s = loadSettings();
@@ -50,7 +50,25 @@ async function runBatch(limit, offset = 0) {
       for (const ln of lines.slice(1)) { const c = ln.split('","').map((x) => x.replace(/^"|"$/g, "")); if (c[ci]) hotelNames[c[ci]] = c[ni]; }
     }
   } catch { /* ignore */ }
-  state.batch = { running: true, total: limit, done: 0, skipped: 0, current: "", results: [], error: null };
+  const aiOn = !!(autoAI && state.vault?.ai?.key);
+  state.batch = { running: true, total: limit, done: 0, skipped: 0, current: "", results: [], error: null, aiOn, aiPending: 0 };
+  // AI 외부검증을 스캔과 동시에(병렬) 미리 실행 — 룸을 클릭하면 결과가 이미 준비됨.
+  const aiQueue = []; let aiActive = 0; const AI_CONCURRENCY = 3;
+  function pumpAI() {
+    while (aiActive < AI_CONCURRENCY && aiQueue.length) {
+      const result = aiQueue.shift(); aiActive += 1;
+      (async () => {
+        result.aiPending = true;
+        try {
+          const ctx = await researchContext();
+          result.ai = await aiResearchRoom(ctx, state.vault.ai, { hotel: result.hotelName || result.code, room: result.room, ourAttrs: result.merchant, candidateAttrs: result.best });
+        } catch (e) { result.ai = { error: String(e?.message || e) }; }
+        finally { result.aiPending = false; }
+      })().finally(() => { aiActive -= 1; state.batch.aiPending = aiQueue.length + aiActive; pumpAI(); });
+    }
+    state.batch.aiPending = aiQueue.length + aiActive;
+  }
+  const scheduleAI = (result) => { if (aiOn) { aiQueue.push(result); pumpAI(); } };
   // Persist the (now logged-in) session so future runs skip the manual login.
   await state.context.storageState({ path: state._sessionFile }).catch(() => {});
   console.log(`[batch] start — up to ${limit} fresh hotel(s) from #${offset + 1} (cooldown ${s.cooldownDays}d)`);
@@ -82,7 +100,9 @@ async function runBatch(limit, offset = 0) {
             const { merchant, candidates, cols } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
             const best = candidates[0];
             if (best) {
-              state.batch.results.push({ code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, basicRoomId: rooms[i].basicRoomId, roomIndex: i, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5), cols });
+              const resultObj = { code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, basicRoomId: rooms[i].basicRoomId, roomIndex: i, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5), cols };
+              state.batch.results.push(resultObj);
+              scheduleAI(resultObj); // 병렬 AI 외부검증 예약
               hadBest = true;
               audit({ operator: state.operator, client: state.activeClient?.name, action: "BATCH_RECOMMEND", code, room: rooms[i].nameEN, recommendedName: best?.name, score: best?.score, band: best?.band });
             } else {
@@ -137,13 +157,17 @@ async function ensureBrowser(client) {
 
 // A separate, hidden (headless) browser just for AI research — so it never
 // pops tabs in the user's working Room Mapping window.
+let _researchInit = null;
 async function researchContext() {
   if (state.researchCtx) return state.researchCtx;
-  state.researchBrowser = await chromium.launch({ headless: true });
-  state.researchCtx = await state.researchBrowser.newContext({
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-  });
-  return state.researchCtx;
+  if (!_researchInit) _researchInit = (async () => {
+    state.researchBrowser = await chromium.launch({ headless: true });
+    state.researchCtx = await state.researchBrowser.newContext({
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    });
+    return state.researchCtx;
+  })();
+  return _researchInit;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -216,8 +240,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/batch/start") {
       if (!state.page) return json(res, 400, { error: "먼저 브라우저 열기" });
       if (state.batch?.running) return json(res, 400, { error: "이미 실행 중" });
-      const { limit, offset } = await body(req);
-      runBatch(Math.max(1, Math.min(Number(limit) || 1, 50)), Math.max(0, Number(offset) || 0)); // background (not awaited)
+      const { limit, offset, autoAI } = await body(req);
+      runBatch(Math.max(1, Math.min(Number(limit) || 1, 50)), Math.max(0, Number(offset) || 0), !!autoAI); // background (not awaited)
       return json(res, 200, { ok: true });
     }
     if (req.method === "POST" && url.pathname === "/api/unlock") {
