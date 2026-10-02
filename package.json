@@ -9,6 +9,7 @@
     "vault": "node src/vault.mjs",
     "queue": "node src/queue.mjs",
     "run": "node src/run.mjs",
+    "scan": "node src/scan.mjs",
     "postinstall": "echo \"\\nNext: npx playwright install chromium\\n\""
   },
   "dependencies": {
