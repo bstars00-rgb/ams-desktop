@@ -79,6 +79,7 @@ ams-desktop/
 - `AMS_Developer_Handover.docx` — 영문 개발 기술 명세서(가장 상세)
 - `AMS_대표이사_보고서.docx` — 한국어 CEO 보고서
 - `Teams_보고메시지.txt` — 팀즈 공지 메시지
+- `AMS_Algorithm_Tuning_Karl.md` — **알고리즘 검증 결과 + 튜닝 가이드 (Karl 인계용)**
 - `gen_spec.cjs`, `gen_ceo.cjs` — 위 Word 문서 재생성 스크립트
 
 ## 7. 주요 파일 설명
