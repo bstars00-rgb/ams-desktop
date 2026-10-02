@@ -1,51 +1,51 @@
 ================================================================
-Teams 메시지 — Karl 인계 (AMS 알고리즘 고도화)
+Teams message — Handover to Karl (AMS algorithm tuning)
 ================================================================
 
-────────── [버전 A · 표준] ──────────
+────────── [Version A · standard] ──────────
 
-@Karl 안녕하세요 👋 AMS(AI 매핑 시스템) 코드와 매칭 알고리즘 고도화를 인계드립니다.
+@Karl Hi 👋 Handing over the AMS (AI Mapping System) codebase and the matching-algorithm tuning to you.
 
-📦 저장소 (private)
+📦 Repository (private)
 https://github.com/bstars00-rgb/ams-desktop
-→ write 권한이 필요하면 알려주세요 (계정 관리자에게 요청).
+→ Let me know if you need write access (I'll ask the account admin).
 
-📄 먼저 읽어주세요
-1) docs/AMS_Algorithm_Tuning_Karl.md — 알고리즘 검증 결과 + 튜닝 가이드 (★ Karl용 핵심)
-2) handover.md — 프로젝트 이관 요약
-3) docs/AMS_Developer_Handover.docx — 전체 기술 명세
+📄 Please read first
+1) docs/AMS_Algorithm_Tuning_Karl.md — validation results + tuning guide (★ your key doc)
+2) handover.md — project handover summary
+3) docs/AMS_Developer_Handover.docx — full technical spec
 
-✅ 현재 상태
-• 프로토타입 정상 작동 (로컬 전용, 시트립 자동 스캔→추천→매핑준비)
-• 실 시트립 37개 호텔로 검증: 정확도 75%→100%(Batch1), 새 호텔 88%(기능적 100%)
-• 개선 반영: 흡연 게이트 + 시트립 Match Score 결합 + 캘리브레이션
-  → 시트립 자체 추천이 틀린 99점 케이스도 게이트가 차단(안전)
+✅ Current status
+• Prototype working (local-only: Trip.com auto scan → recommend → prepare mapping)
+• Validated on 37 real Trip.com hotels: accuracy 75%→100% (Batch 1), 88% on fresh hotels (functionally 100%)
+• Added: smoking gate + Trip Match Score blend + calibration
+  → even Trip's own wrong 99-score picks are caught by the gates (safety)
 
-🛠️ Karl 다음 작업 (매핑 노하우 반영)
-• lib/score.mjs 의 어휘사전/가중치 고도화
-• 우선 과제: ①베드 카탈로그 차이 완화 ②이름 키워드 보너스 ③점유 피처 추가 ④일본계 어휘 보강 ⑤tripWeight 미세조정
-  (상세는 위 1번 문서 4장)
+🛠️ Your next tasks (apply mapping know-how)
+• Improve the vocabularies/weights in lib/score.mjs
+• Priorities: (1) soften bed-catalog differences (2) name-keyword bonus (3) add Occupancy feature (4) strengthen Japan vocabulary (5) tune tripWeight
+  (details in section 4 of doc #1)
 
-▶ 실행
+▶ Run
   git clone … && cd ams-desktop
   npm install && npx playwright install chromium
-  npm start            # 콘솔(localhost:5234)
-  npm run scan -- --from 1 --count 20 --group 1210   # 무인 스캔(회귀 테스트)
+  npm start            # console at localhost:5234
+  npm run scan -- --from 1 --count 20 --group 1210   # unattended scan (regression)
 
-⚠️ 주의
-• 자격증명(vault)·세션은 각자 PC에서 새로 설정 (기존 OPS 것 재사용 금지)
-• 튜닝은 소량(10~20 호텔)으로 먼저 확인 후 확대 권장
+⚠️ Notes
+• Set up credentials (vault) & sessions fresh on your own PC (do not reuse the OPS ones)
+• Validate each change on a small set (10–20 hotels) first, then scale up
 
-궁금한 점 있으면 편하게 물어보세요. 🙌
+Feel free to ping me with any questions. 🙌
 
 
-────────── [버전 B · 간결] ──────────
+────────── [Version B · short] ──────────
 
-@Karl AMS 코드/알고리즘 고도화 인계드립니다.
-저장소: https://github.com/bstars00-rgb/ams-desktop (write 권한 필요 시 요청)
-핵심 문서: docs/AMS_Algorithm_Tuning_Karl.md (튜닝 가이드) · handover.md
+@Karl Handing over the AMS codebase + algorithm tuning to you.
+Repo: https://github.com/bstars00-rgb/ams-desktop (ask me if you need write access)
+Key docs: docs/AMS_Algorithm_Tuning_Karl.md (tuning guide) · handover.md
 
-현재: 프로토타입 작동 + 37개 호텔 검증(정확도↑) + 흡연게이트·시트립결합 반영.
-요청: lib/score.mjs 어휘/가중치를 매핑 노하우로 고도화 (문서 4장의 다음 과제 참고).
-실행: npm install → npx playwright install chromium → npm start (또는 npm run scan).
-주의: 자격증명은 각자 PC에서 새로 설정. 질문 환영합니다 🙌
+Status: prototype working + validated on 37 Trip.com hotels (accuracy up) + smoking gate & Trip-score blend added.
+Ask: improve lib/score.mjs vocab/weights with your mapping know-how (see section 4 for next tasks).
+Run: npm install → npx playwright install chromium → npm start (or npm run scan).
+Note: set up credentials fresh on your own PC. Questions welcome 🙌
