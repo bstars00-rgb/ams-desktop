@@ -141,7 +141,7 @@ for (let ci = offset; ci < allCodes.length && scanned < count; ci++) {
         await ctrip.openModal(page, i);
         const tables = await readPage(page);
         if (tables.master) {
-          const { merchant, candidates } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
+          const { merchant, candidates } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold, s.tripWeight);
           const best = candidates[0];
           if (best) { results.push({ code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, basicRoomId: rooms[i].basicRoomId, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5) }); hadBest = true; }
         }

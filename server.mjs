@@ -105,7 +105,7 @@ async function runBatch(limit, offset = 0, autoAI = false) {
           const tables = await readPage(state.page);
           console.log(`[batch]   room ${i + 1}/${rooms.length} "${rooms[i].nameEN}" master=${!!tables.master}`);
           if (tables.master) {
-            const { merchant, candidates, cols } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
+            const { merchant, candidates, cols } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold, s.tripWeight);
             const best = candidates[0];
             if (best) {
               const resultObj = { code, hotelName: hotelNames[code] || "", roomCode: rooms[i].roomCode, basicRoomId: rooms[i].basicRoomId, roomIndex: i, room: rooms[i].nameEN || merchant.name, merchant, best, candidates: candidates.slice(0, 5), cols };
@@ -372,7 +372,7 @@ const server = http.createServer(async (req, res) => {
       await state.context.storageState({ path: state._sessionFile }).catch(() => {});
       const tables = await readPage(state.page);
       if (!tables.master) { await dumpPage(state.page); return json(res, 200, { ok: false, error: "no_table", saved: "reports/page.html" }); }
-      const { merchant, candidates } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold);
+      const { merchant, candidates } = analyze(tables, s.weights, s.autoThreshold, s.reviewThreshold, s.tripWeight);
       const best = candidates[0];
       await highlight(state.page, best?.id, best?.score);
       const rec = { ts: new Date().toISOString(), client: state.activeClient?.name, operator: state.operator, merchant: merchant.name, best: best?.name, bestId: best?.id, score: best?.score, band: best?.band, candidates: candidates.slice(0, 5) };
