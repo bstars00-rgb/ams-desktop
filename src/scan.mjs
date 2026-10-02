@@ -40,6 +40,8 @@ const offset = from - 1;
 const useAI = flag("ai");
 const headless = !flag("headful");
 const operator = opt("operator", "headless-cli");
+const group = opt("group", "1210"); // 1210 Ohmyhotel (KR/JP/WW) · 1311 Ohmyhotelvn (VN)
+const groupName = group === "1311" ? "Ohmyhotelvn" : group === "1210" ? "Ohmyhotel" : "";
 
 const tier = (s) => { s = Number(s) || 0; return s >= 99 ? "99%+" : s >= 95 ? "95%+" : s >= 90 ? "90%+" : s >= 80 ? "80%+" : s >= 65 ? "65%+" : "<65%"; };
 
@@ -73,15 +75,13 @@ if (!client) { console.error(`❌ 업체 '${wantClient}' 를 금고에서 찾지
 
 fs.mkdirSync("auth", { recursive: true });
 const sessionFile = `auth/${client.name.replace(/[^a-z0-9]/gi, "_")}.json`;
-if (!fs.existsSync(sessionFile)) {
-  console.error(`❌ 저장된 세션 없음 (${sessionFile}). 먼저 콘솔(헤드풀)에서 ${client.name} 로그인·그룹선택 후 다시 실행하세요.`);
-  process.exit(1);
-}
+const hasSession = fs.existsSync(sessionFile);
+if (!hasSession) console.log(`ℹ 저장된 세션 없음 — 자동 로그인으로 시작합니다 (${client.name}).`);
 
-console.log(`\n▶ 무인 스캔 시작 — 업체: ${client.name} · 코드 #${from}~#${from + count - 1} · AI: ${useAI ? "ON" : "OFF"} · ${headless ? "headless" : "headful"}`);
+console.log(`\n▶ 무인 스캔 시작 — 업체: ${client.name} · 그룹: ${group}${groupName ? "(" + groupName + ")" : ""} · 코드 #${from}~#${from + count - 1} · AI: ${useAI ? "ON" : "OFF"} · ${headless ? "headless" : "headful"}`);
 
 const browser = await chromium.launch({ headless });
-const context = await browser.newContext({ storageState: sessionFile });
+const context = await browser.newContext(hasSession ? { storageState: sessionFile } : {});
 const page = await context.newPage();
 
 // Go to Room Mapping (the CLI must navigate itself — no human). Verify we are
@@ -92,23 +92,25 @@ async function onRoomMapping() {
 }
 let ready = await onRoomMapping();
 if (!ready) {
-  // one best-effort auto-login, then retry
-  console.log("… 세션으로 바로 못 들어감 — 자동 로그인 시도");
-  await page.goto(client.url, { waitUntil: "domcontentloaded" }).catch(() => {});
-  try {
-    const pw = page.locator('input[type="password"]').first();
-    if (await pw.isVisible({ timeout: 4000 }).catch(() => false)) {
-      await page.locator('input[type="email"], input[type="text"]:not([type="password"])').first().fill(client.id).catch(() => {});
-      await pw.fill(client.pw).catch(() => {});
-      await page.getByRole("button", { name: /log\s?in|sign\s?in|登录|登錄|로그인/i }).first().click({ timeout: 3000 }).catch(() => {});
-      await page.waitForTimeout(2000);
-    }
-  } catch { /* ignore */ }
+  // Unattended recovery: auto-login (id/pw) → switch group → back to Room Mapping.
+  console.log("… 세션 만료/미설정 — 자동 로그인 + 그룹선택(무인) 시도");
+  await page.goto(client.url || "https://connect.trip.com/login", { waitUntil: "domcontentloaded" }).catch(() => {});
+  const logged = await ctrip.ensureLoggedIn(page, client);
+  if (!logged) {
+    console.error("\n❌ 자동 로그인 실패 — 로그인 폼 변경 또는 (예상외) 캡차/2FA 가능.");
+    console.error("   → --headful 로 실행해 화면을 확인하세요.");
+    await browser.close();
+    process.exit(2);
+  }
+  console.log(`   ✓ 로그인됨 — 그룹 ${group} 전환 시도`);
+  const g = await ctrip.ensureGroup(page, group, groupName);
+  console.log(`   그룹전환: Account열기=${g.opened} · Switch클릭=${g.switchClicked} · 그룹선택=${g.picked}`);
   ready = await onRoomMapping();
 }
 if (!ready) {
-  console.error("\n❌ Room Mapping 화면에 접근하지 못했습니다 (세션 만료 또는 그룹 미선택).");
-  console.error("   → 먼저 콘솔(헤드풀)에서 로그인 → 그룹 선택(1210/1311) → Room Mapping 을 띄워 세션을 갱신한 뒤 다시 실행하세요.");
+  console.error("\n❌ Room Mapping 준비 실패 — 로그인/그룹선택이 완료되지 않았습니다.");
+  console.error("   → --headful 로 실행해 화면을 보고, 그룹 선택 모달이 열린 상태에서");
+  console.error("     콘솔 '현재 화면 HTML 저장'(/api/dump)으로 캡처해 주시면 그룹 선택자를 정확히 맞추겠습니다.");
   await context.storageState({ path: sessionFile }).catch(() => {});
   await browser.close();
   process.exit(2);
